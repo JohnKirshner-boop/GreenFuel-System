@@ -1,0 +1,72 @@
+<!-- ACCOUNT SETTINGS -->
+        <div class="page" id="page-account">
+          <div class="page-header">
+            <div>
+              <div class="page-title">Account Settings</div>
+              <div class="page-sub">Manage your profile, password, and display mode.</div>
+            </div>
+            <div class="page-header-mark" id="account-role-chip">Account</div>
+          </div>
+
+          <div class="account-settings-grid">
+            <div class="card account-profile-card">
+              <div class="card-title">Profile</div>
+              <div class="card-desc">This photo and name appear in your portal sidebar.</div>
+              <div class="account-avatar-panel">
+                <div class="account-avatar-preview" id="account-avatar-preview">?</div>
+                <div class="account-avatar-actions">
+                  <label class="btn-outline account-upload-btn">
+                    Upload Photo
+                    <input id="account-photo-input" type="file" accept="image/png,image/jpeg,image/webp,image/gif" onchange="handleAccountPhotoUpload(event)">
+                  </label>
+                  <button class="btn-outline" type="button" onclick="removeAccountPhoto()">Remove</button>
+                  <small>PNG, JPG, WEBP, or GIF up to 1 MB.</small>
+                </div>
+              </div>
+
+              <label class="account-field">Display Name
+                <input id="account-name" type="text" autocomplete="name">
+              </label>
+              <label class="account-field">Email
+                <input id="account-email" type="email" readonly>
+              </label>
+              <div class="account-readonly-grid">
+                <span><small>Role</small><b id="account-role">-</b></span>
+                <span><small>Branch</small><b id="account-branch">-</b></span>
+              </div>
+              <button class="btn-green account-save-btn" type="button" onclick="saveAccountSettings()">Save Account Settings</button>
+            </div>
+
+            <div class="account-side-stack">
+              <div class="card">
+                <div class="card-title">Appearance</div>
+                <div class="card-desc">Choose the display mode for this account.</div>
+                <div class="theme-toggle-group">
+                  <button id="account-theme-light" class="theme-choice" type="button" onclick="setAccountTheme('light')">
+                    <b>Light Mode</b>
+                    <span>Bright workspace</span>
+                  </button>
+                  <button id="account-theme-dark" class="theme-choice" type="button" onclick="setAccountTheme('dark')">
+                    <b>Night Mode</b>
+                    <span>Darker interface</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-title">Change Password</div>
+                <div class="card-desc">Use your current password before setting a new one.</div>
+                <label class="account-field">Current Password
+                  <input id="account-current-password" type="password" autocomplete="current-password">
+                </label>
+                <label class="account-field">New Password
+                  <input id="account-new-password" type="password" autocomplete="new-password">
+                </label>
+                <label class="account-field">Confirm New Password
+                  <input id="account-confirm-password" type="password" autocomplete="new-password">
+                </label>
+                <button class="btn-green account-save-btn" type="button" onclick="changeAccountPassword()">Update Password</button>
+              </div>
+            </div>
+          </div>
+        </div>

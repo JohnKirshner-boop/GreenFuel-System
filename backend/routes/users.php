@@ -1,0 +1,199 @@
+<?php
+// backend/routes/users.php
+// User and role assignment management.
+
+require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/../account_helpers.php';
+$user = requireAuth();
+$action = $_GET['action'] ?? 'list';
+$db = getDB();
+gfEnsureAccountSchema($db);
+
+if (!in_array($user['role'] ?? '', ['owner', 'manager'], true)) {
+    jsonError('Only owners and managers can manage staff accounts.', 403);
+}
+
+function roleBranch(PDO $db, ?string $branchId): ?array {
+    if (!$branchId) return null;
+    $stmt = $db->prepare('SELECT id, name, location FROM branches WHERE id=? LIMIT 1');
+    $stmt->execute([$branchId]);
+    $branch = $stmt->fetch();
+    return $branch ?: null;
+}
+
+function currentManagerBranches(PDO $db, array $user): array {
+    if (($user['role'] ?? '') !== 'manager') return [];
+    $branchIds = gfAssignedBranchIds($db, (int)$user['id']);
+    if (!$branchIds && !empty($user['branch_id'])) $branchIds = [$user['branch_id']];
+    return gfNormalizeBranchIds($branchIds);
+}
+
+switch ($action) {
+    case 'list': {
+        $params = [];
+        $where = '';
+        if (($user['role'] ?? '') === 'manager') {
+            $managerBranches = currentManagerBranches($db, $user);
+            if (!$managerBranches) jsonSuccess([]);
+            $where = "WHERE u.role='cashier' AND u.branch_id IN (" . implode(',', array_fill(0, count($managerBranches), '?')) . ')';
+            $params = $managerBranches;
+        }
+        $stmt = $db->prepare(
+            "SELECT u.id, u.username, u.email, u.name, u.role, u.branch_id, u.created_at,
+                    b.name AS branch_name, b.location AS branch_location
+             FROM users u
+             LEFT JOIN branches b ON b.id = u.branch_id
+             $where
+             ORDER BY FIELD(u.role, 'owner','manager','cashier'), u.name"
+        );
+        $stmt->execute($params);
+        $users = $stmt->fetchAll();
+
+        $branchRows = $db->query(
+            "SELECT ub.user_id, ub.branch_id, ub.is_primary, b.name, b.location
+               FROM user_branches ub
+               LEFT JOIN branches b ON b.id = ub.branch_id
+              ORDER BY ub.is_primary DESC, b.name"
+        )->fetchAll();
+        $byUser = [];
+        foreach ($branchRows as $row) {
+            $uid = (int)$row['user_id'];
+            if (!isset($byUser[$uid])) $byUser[$uid] = [];
+            $byUser[$uid][] = [
+                'id' => $row['branch_id'],
+                'name' => $row['name'],
+                'location' => $row['location'],
+                'is_primary' => (int)$row['is_primary'],
+            ];
+        }
+
+        foreach ($users as &$u) {
+            $assigned = $byUser[(int)$u['id']] ?? [];
+            if (!$assigned && $u['branch_id']) {
+                $assigned[] = [
+                    'id' => $u['branch_id'],
+                    'name' => $u['branch_name'],
+                    'location' => $u['branch_location'],
+                    'is_primary' => 1,
+                ];
+            }
+            $u['branch_ids'] = array_values(array_map(fn($b) => $b['id'], $assigned));
+            $u['branch_labels'] = array_values(array_map(
+                fn($b) => trim(($b['name'] ?? $b['id']) . (!empty($b['location']) ? ' - ' . $b['location'] : '')),
+                $assigned
+            ));
+            if ($u['role'] === 'manager' && $assigned) {
+                $u['branch_name'] = implode(', ', array_map(fn($b) => $b['name'] ?: $b['id'], $assigned));
+                $u['branch_location'] = count($assigned) . ' assigned branch' . (count($assigned) === 1 ? '' : 'es');
+            }
+        }
+        unset($u);
+        jsonSuccess($users);
+    }
+
+    case 'save': {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonError('POST required', 405);
+        $b = getBody();
+        $id = (int)($b['id'] ?? 0);
+        $name = trim($b['name'] ?? '');
+        $email = strtolower(trim($b['email'] ?? ($b['username'] ?? '')));
+        $username = substr($email, 0, 50);
+        $password = (string)($b['password'] ?? '');
+        $role = trim($b['role'] ?? '');
+        $branchId = trim($b['branch_id'] ?? '');
+        $branchIds = $b['branch_ids'] ?? [];
+        if (!is_array($branchIds)) $branchIds = [$branchId];
+
+        if (!$name) jsonError('Full name is required.');
+        if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL)) jsonError('A valid email is required.');
+        if (!in_array($role, ['owner', 'manager', 'cashier'], true)) jsonError('Choose a valid role.');
+
+        $managerBranches = currentManagerBranches($db, $user);
+        if (($user['role'] ?? '') === 'manager') {
+            if ($role !== 'cashier') jsonError('Managers can only create cashier accounts.', 403);
+            if (!$managerBranches) jsonError('No branch is assigned to this manager.', 403);
+            if (!in_array($branchId, $managerBranches, true)) {
+                jsonError('Managers can only assign cashiers to their assigned branches.', 403);
+            }
+            $branchIds = [$branchId];
+        }
+
+        if ($role === 'owner') {
+            $branchId = null;
+            $branchIds = [];
+        } elseif ($role === 'manager') {
+            $valid = gfValidBranches($db, $branchIds);
+            if (!$valid) jsonError('Assign at least one valid branch to this manager.');
+            $branchIds = array_values(array_filter(gfNormalizeBranchIds($branchIds), fn($id) => isset($valid[$id])));
+            if (!$branchIds) jsonError('Assign at least one valid branch to this manager.');
+            $branchId = $branchIds[0];
+        } else {
+            $branch = roleBranch($db, $branchId);
+            if (!$branch) jsonError('Cashiers must be assigned to a valid branch.');
+            $branchIds = [$branchId];
+        }
+
+        if ($id > 0) {
+            $check = $db->prepare('SELECT id, role FROM users WHERE id=? LIMIT 1');
+            $check->execute([$id]);
+            $existing = $check->fetch();
+            if (!$existing) jsonError('User not found.', 404);
+            if (($user['role'] ?? '') === 'manager') {
+                if ($existing['role'] !== 'cashier') {
+                    jsonError('Managers can only update cashier accounts.', 403);
+                }
+                $access = $db->prepare('SELECT branch_id FROM users WHERE id=? LIMIT 1');
+                $access->execute([$id]);
+                $existingBranch = (string)$access->fetchColumn();
+                if (!in_array($existingBranch, $managerBranches, true)) {
+                    jsonError('This cashier is outside your assigned branch access.', 403);
+                }
+            }
+            if ($existing['role'] === 'owner' && $role !== 'owner') {
+                $owners = $db->prepare("SELECT COUNT(*) FROM users WHERE role='owner' AND id<>?");
+                $owners->execute([$id]);
+                if ((int)$owners->fetchColumn() < 1) {
+                    jsonError('At least one owner account must remain.');
+                }
+            }
+
+            $dupe = $db->prepare('SELECT id FROM users WHERE email=? AND id<>? LIMIT 1');
+            $dupe->execute([$email, $id]);
+            if ($dupe->fetch()) jsonError('Email is already used by another account.');
+
+            $canChangePassword = $existing['role'] !== 'owner' && $role !== 'owner';
+            if ($password !== '' && $canChangePassword) {
+                $stmt = $db->prepare(
+                    'UPDATE users SET username=?, email=?, password=?, name=?, role=?, branch_id=? WHERE id=?'
+                );
+                $stmt->execute([$username, $email, password_hash($password, PASSWORD_DEFAULT), $name, $role, $branchId, $id]);
+            } else {
+                $stmt = $db->prepare(
+                    'UPDATE users SET username=?, email=?, name=?, role=?, branch_id=? WHERE id=?'
+                );
+                $stmt->execute([$username, $email, $name, $role, $branchId, $id]);
+            }
+            gfSyncUserBranches($db, $id, $branchIds, $branchId);
+            jsonSuccess(['id' => $id], 'User assignment updated.');
+        }
+
+        if ($role === 'owner') jsonError('Owner accounts are managed outside this screen.');
+        if ($password === '') jsonError('Password is required for a new user.');
+        $stmt = $db->prepare(
+            'INSERT INTO users (username, email, password, name, role, branch_id)
+             VALUES (?,?,?,?,?,?)'
+        );
+        try {
+            $stmt->execute([$username, $email, password_hash($password, PASSWORD_DEFAULT), $name, $role, $branchId]);
+        } catch (PDOException $e) {
+            if ($e->getCode() === '23000') jsonError('Email is already used by another account.');
+            throw $e;
+        }
+        $newId = (int)$db->lastInsertId();
+        gfSyncUserBranches($db, $newId, $branchIds, $branchId);
+        jsonSuccess(['id' => $newId], 'User assignment created.');
+    }
+
+    default:
+        jsonError('Unknown action.', 404);
+}

@@ -1,0 +1,24 @@
+<!-- RECORDS LOG -->
+        <div class="page" id="page-records">
+          <div class="page-header">
+            <div class="page-title">Records Log</div>
+            <div class="page-sub">Complete transaction history for your branch</div>
+          </div>
+          <div class="card">
+            <div style="display:flex;gap:10px;margin-bottom:1.25rem;flex-wrap:wrap;align-items:flex-end">
+              <div class="form-field">
+                <label>Filter by Date</label>
+                <input type="date" id="filter-date" onchange="renderRecords()" style="padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--rad-sm);background:white;color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif"/>
+              </div>
+              <div class="form-field">
+                <label>Fuel Type</label>
+                <select id="filter-fuel" onchange="renderRecords()" style="padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--rad-sm);background:white;color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif">
+                  <option value="">All types</option>
+                </select>
+              </div>
+              <button class="btn-outline btn-sm" onclick="clearFilters()">Clear</button>
+              <span id="records-count" class="badge badge-gray" style="align-self:center;margin-left:auto">— records</span>
+            </div>
+            <div class="tbl-wrap" id="records-table"></div>
+          </div>
+        </div>

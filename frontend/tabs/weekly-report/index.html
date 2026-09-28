@@ -1,0 +1,28 @@
+<!-- WEEKLY REPORT -->
+        <div class="page" id="page-weekly">
+          <div class="page-header">
+            <div class="page-title">Weekly Report</div>
+            <div class="page-sub">Consolidated sales summary for submission to owner</div>
+          </div>
+          <div class="stat-grid" id="weekly-stat-grid"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+            <div class="card">
+              <div class="card-title">Fuel Breakdown</div>
+              <div class="card-desc">Volume and revenue by fuel type</div>
+              <div class="tbl-wrap" id="weekly-fuel-table"></div>
+            </div>
+            <div class="card">
+              <div class="card-title">Daily Summary</div>
+              <div class="card-desc">Day-by-day performance</div>
+              <div class="tbl-wrap" id="weekly-daily-table"></div>
+            </div>
+          </div>
+          <div id="weekly-submit-area" style="display:flex;justify-content:flex-end;gap:10px;margin-top:0.5rem">
+            <button class="btn-outline" onclick="window.print()">Print</button>
+            <button class="btn-green" onclick="submitWeeklyReport()">Submit to Owner</button>
+          </div>
+          <div class="alert alert-success" id="weekly-submitted" style="display:none;margin-top:1rem">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+            Weekly report submitted. The owner has been notified.
+          </div>
+        </div>

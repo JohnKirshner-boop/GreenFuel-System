@@ -1,0 +1,24 @@
+<!-- BRANCH COMPARISON -->
+        <div class="page" id="page-comparison">
+          <div class="page-header">
+            <div class="page-title">Branch Comparison</div>
+            <div class="page-sub">Revenue rankings and cross-branch performance</div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
+            <div class="card">
+              <div class="card-title">Revenue Rankings</div>
+              <div class="card-desc">Branches ranked by total revenue</div>
+              <div class="rank-list" id="rank-list"></div>
+            </div>
+            <div class="card">
+              <div class="card-title">Revenue Chart</div>
+              <div class="card-desc">Side-by-side comparison</div>
+              <div class="chart-wrap"><canvas id="branch-bar-chart" role="img" aria-label="Branch comparison">Branch revenue.</canvas></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Detailed Branch Statistics</div>
+            <div class="card-desc">Transactions, volume, and revenue per branch</div>
+            <div class="tbl-wrap" id="branch-detail-table"></div>
+          </div>
+        </div>

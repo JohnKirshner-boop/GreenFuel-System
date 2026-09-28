@@ -1,0 +1,64 @@
+<div class="page" id="page-inventory">
+  <div class="page-header">
+    <div class="page-title">Fuel Inventory Monitoring</div>
+    <div class="page-sub" id="inventory-sub">Track tank levels, deductions, and refill alerts.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Tank Measurement Input (cm)</div>
+    <div class="card-desc">Enter current underground tank level and auto-convert to liters.</div>
+    <div class="form-row">
+      <div class="form-field">
+        <label>Fuel Type</label>
+        <select id="inv-fuel">
+          <option value="diesel">Diesel</option>
+          <option value="unleaded">Unleaded</option>
+          <option value="premium">Premium</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label>Measurement (cm)</label>
+        <input type="number" id="inv-cm" min="0" step="0.01" placeholder="e.g. 65.00"/>
+      </div>
+      <div class="form-field">
+        <label>&nbsp;</label>
+        <button class="btn-primary" onclick="submitInventoryMeasurement()">Save Measurement</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="inv-dashboard-wrap">
+    <div class="card-title">Inventory Dashboard</div>
+    <div class="card-desc">Current fuel stock, low-stock alerts, and usage trends.</div>
+    <div id="inv-cards" class="inventory-card-grid"></div>
+    <div class="inventory-alerts" id="inv-alerts"></div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+      <div>
+        <div class="card-title">Refill Entry</div>
+        <div class="card-desc">Record fuel deliveries to add liters to stock.</div>
+      </div>
+      <button class="btn-outline" onclick="submitInventoryRefill()">Save Refill</button>
+    </div>
+    <div class="form-row" style="margin-top:10px">
+      <div class="form-field">
+        <label>Fuel Type</label>
+        <select id="inv-refill-fuel">
+          <option value="diesel">Diesel</option>
+          <option value="unleaded">Unleaded</option>
+          <option value="premium">Premium</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label>Liters Added</label>
+        <input type="number" id="inv-refill-liters" min="0.01" step="0.01" placeholder="e.g. 1200"/>
+      </div>
+      <div class="form-field">
+        <label>Notes</label>
+        <input type="text" id="inv-refill-notes" maxlength="255" placeholder="Delivery reference"/>
+      </div>
+    </div>
+  </div>
+</div>

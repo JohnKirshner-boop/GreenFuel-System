@@ -1,0 +1,83 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/b6tn1s",
+    "id": "b6tn1s",
+    "slide": 13,
+    "layoutId": "57d28c93-2b4d-4b5e-b7d1-648b1366ddf1",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "d36b5e7c-ae51-4563-9762-7eb11ac78aa3",
+    "masterLayoutName": "Master",
+    "backgroundColor": "#FFFFFF",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 1440,
+      "height": 900
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    }
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "57d28c93-2b4d-4b5e-b7d1-648b1366ddf1",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "d36b5e7c-ae51-4563-9762-7eb11ac78aa3",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "d36b5e7c-ae51-4563-9762-7eb11ac78aa3",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "image",
+      "scope": "slide",
+      "aid": "im/porm58rm",
+      "id": "1",
+      "bbox": [
+        0,
+        0,
+        1440,
+        900
+      ],
+      "alt": "Manager Fuel Price Request",
+      "contentType": "image/png",
+      "imageFit": "cover",
+      "asset": {
+        "assetId": "b3de3b77-0e6c-4188-8a82-03c0e103c3a3",
+        "contentType": "image/png",
+        "byteLength": 173560
+      }
+    }
+  ],
+  "composeRuns": []
+}

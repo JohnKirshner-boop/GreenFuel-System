@@ -1,0 +1,24 @@
+<!-- MANAGER DASHBOARD -->
+        <div class="page" id="page-mgr-dash">
+          <div class="page-header">
+            <div class="page-title">Branch Dashboard</div>
+            <div class="page-sub">Performance overview for your branch</div>
+          </div>
+          <div class="stat-grid" id="mgr-stat-grid"></div>
+          <div style="display:grid;grid-template-columns:3fr 2fr;gap:1rem">
+            <div class="card">
+              <div class="card-title">Daily Sales Trend</div>
+              <div class="card-desc">Revenue over the last 7 days</div>
+              <div class="chart-wrap"><canvas id="mgr-trend-chart" role="img" aria-label="7-day daily revenue">Daily revenue.</canvas></div>
+            </div>
+            <div class="card">
+              <div class="card-title">Fuel Mix</div>
+              <div class="card-desc">Revenue share by fuel type</div>
+              <div class="chart-wrap-sm"><canvas id="mgr-fuel-chart" role="img" aria-label="Fuel mix">Fuel distribution.</canvas></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title" style="margin-bottom:1rem">Recent Transactions</div>
+            <div class="tbl-wrap" id="mgr-tx-table"></div>
+          </div>
+        </div>

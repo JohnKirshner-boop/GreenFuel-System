@@ -1,0 +1,54 @@
+<div class="page" id="page-inventory-reports">
+  <div class="page-header">
+    <div class="page-title">Inventory Reports</div>
+    <div class="page-sub">Daily/weekly usage, movement history, and deduction logs.</div>
+  </div>
+
+  <div class="card">
+    <div class="form-row">
+      <div class="form-field">
+        <label>From</label>
+        <input type="date" id="inv-report-from"/>
+      </div>
+      <div class="form-field">
+        <label>To</label>
+        <input type="date" id="inv-report-to"/>
+      </div>
+      <div class="form-field">
+        <label>Fuel</label>
+        <select id="inv-report-fuel">
+          <option value="">All</option>
+          <option value="diesel">Diesel</option>
+          <option value="unleaded">Unleaded</option>
+          <option value="premium">Premium</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label>&nbsp;</label>
+        <button class="btn-primary" onclick="loadInventoryReports()">Load Reports</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Fuel Movement History</div>
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Date/Time</th>
+            <th>Fuel</th>
+            <th>Type</th>
+            <th>Delta (L)</th>
+            <th>Before (L)</th>
+            <th>After (L)</th>
+            <th>Reference</th>
+          </tr>
+        </thead>
+        <tbody id="inv-report-movements">
+          <tr><td colspan="7">No data loaded.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

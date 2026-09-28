@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GreenFuel — Centralized Invoicing & Sales Management</title>
+<link rel="icon" type="image/svg+xml" href="assets/greenfuel-logo.svg?v=20260526-logo-crop"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="css/style.css?v=20260928-forgot-page-dark-fix"/>
+</head>
+<body>
+
+<div class="toast" id="toast">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+  <span id="toast-msg"></span>
+</div>
+
+<div id="app">
+
+  <!-- ===== LOGIN ===== -->
+  <div id="login-screen" class="screen active">
+    <div class="login-layout">
+      <div class="login-panel">
+        <div class="login-header">
+          <div class="login-logo-line">
+            <img class="login-logo-img" src="assets/greenfuel-logo.svg?v=20260526-logo-crop" alt="GreenFuel Fuel Safe logo"/>
+            <span>GreenFuel</span>
+          </div>
+          <div class="login-title">Welcome back</div>
+          <div class="login-sub">Sign in to access the centralized management system.</div>
+        </div>
+        <div class="role-switcher" id="login-role-switcher">
+          <button class="role-option" onclick="quickLogin('owner@greenfuel.local','admin123','owner')" type="button">
+            <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+            <span>Owner</span>
+          </button>
+          <button class="role-option active" onclick="quickLogin('manager1@greenfuel.local','mgr123','manager')" type="button">
+            <svg viewBox="0 0 24 24"><path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z"/></svg>
+            <span>Manager</span>
+          </button>
+          <button class="role-option" onclick="quickLogin('cashier1@greenfuel.local','pos123','cashier')" type="button">
+            <svg viewBox="0 0 24 24"><path d="M21 18v1c0 1.1-.9 2-2 2H5c-1.11 0-2-.9-2-2V5c0-1.1.89-2 2-2h14c1.1 0 2 .9 2 2v1H5v12h16zM7 15h6v-2H7v2zm0-4h10V9H7v2z"/></svg>
+            <span>Cashier</span>
+          </button>
+        </div>
+        <div class="field" id="login-email-field">
+          <label>Email</label>
+          <input type="email" id="login-user" placeholder="e.g. manager1@greenfuel.local" autocomplete="email"/>
+        </div>
+        <div class="field" id="login-password-field">
+          <div class="field-label-row">
+            <label>Password</label>
+            <button class="login-link-btn inline" id="forgot-open-btn" type="button" onclick="toggleForgotPassword()">Forgot password?</button>
+          </div>
+          <div class="password-input-wrap">
+            <input type="password" id="login-pass" placeholder="Enter password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"/>
+            <button type="button" class="password-view-btn" id="login-password-toggle" onclick="toggleLoginPassword()" aria-label="Show password">
+              <svg class="eye-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5c5.3 0 9.3 4.2 10.7 6.1.4.5.4 1.2 0 1.8C21.3 14.8 17.3 19 12 19S2.7 14.8 1.3 12.9a1.5 1.5 0 0 1 0-1.8C2.7 9.2 6.7 5 12 5zm0 2C7.7 7 4.4 10.2 3.1 12 4.4 13.8 7.7 17 12 17s7.6-3.2 8.9-5C19.6 10.2 16.3 7 12 7zm0 2.2a2.8 2.8 0 1 1 0 5.6 2.8 2.8 0 0 1 0-5.6z"/></svg>
+              <svg class="eye-closed" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.3 2 22 20.7 20.7 22l-3.2-3.2A12.2 12.2 0 0 1 12 20C6.7 20 2.7 15.8 1.3 13.9a1.5 1.5 0 0 1 0-1.8A18.6 18.6 0 0 1 5 8.3L2 5.3 3.3 2zm3.1 7.7A16 16 0 0 0 3.1 13C4.4 14.8 7.7 18 12 18c1.4 0 2.7-.3 3.9-.9l-2.1-2.1a3.2 3.2 0 0 1-4.1-4.1L6.4 9.7zM12 6c5.3 0 9.3 4.2 10.7 6.1.4.5.4 1.2 0 1.8-.4.5-1.2 1.4-2.3 2.3L19 14.8c.8-.7 1.4-1.3 1.9-1.8C19.6 11.2 16.3 8 12 8c-.8 0-1.6.1-2.4.3L8 6.8c1.2-.5 2.5-.8 4-.8z"/></svg>
+            </button>
+          </div>
+        </div>
+        <button class="btn-primary" id="login-submit-btn" onclick="doLogin()">Sign In</button>
+        <div class="forgot-panel" id="forgot-panel" style="display:none">
+          <div class="reset-icon">MAIL</div>
+          <h3>Reset Your Password</h3>
+          <p>Enter the Gmail or account email connected to your GreenFuel account. A password reset link will be sent there.</p>
+          <div class="field">
+            <label>Gmail / Account Email</label>
+            <input type="email" id="forgot-email" placeholder="e.g. manager1@greenfuel.local" autocomplete="email"/>
+          </div>
+          <button class="btn-primary" type="button" onclick="submitForgotPassword()">Send Reset Link</button>
+          <button class="login-link-btn" type="button" onclick="returnToLoginFromForgot()">Back to sign in</button>
+          <div class="login-hint">Reset links work for owner, manager, and cashier accounts.</div>
+          <div class="forgot-result" id="forgot-result"></div>
+        </div>
+        <div class="reset-panel" id="reset-panel" style="display:none">
+          <div class="reset-icon">LOCK</div>
+          <h3>Create New Password</h3>
+          <p>Enter a new password for this GreenFuel account.</p>
+          <input type="hidden" id="reset-token"/>
+          <div class="field">
+            <label>New Password</label>
+            <input type="password" id="reset-pass" placeholder="At least 6 characters" autocomplete="new-password"/>
+          </div>
+          <div class="field">
+            <label>Confirm Password</label>
+            <input type="password" id="reset-confirm-pass" placeholder="Re-enter password" autocomplete="new-password" onkeydown="if(event.key==='Enter')submitTokenPasswordReset()"/>
+          </div>
+          <button class="btn-primary" type="button" onclick="submitTokenPasswordReset()">Update Password</button>
+          <button class="login-link-btn" type="button" onclick="returnToLoginFromReset()">Back to sign in</button>
+        </div>
+        <div class="login-error" id="login-err">Incorrect email or password.</div>
+      </div>
+      <div class="login-visual">
+        <div class="login-map-lines"></div>
+        <div class="login-quote">
+          <strong>"Efficiency in every drop. Tracking branch sales in real time."</strong>
+          <span>GreenFuel Management System</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MAIN APP ===== -->
+  <div id="main-screen" class="screen">
+    <div class="sidebar" id="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-icon">
+          <img class="brand-logo-img" src="assets/greenfuel-logo.svg?v=20260526-logo-crop" alt="GreenFuel Fuel Safe logo"/>
+        </div>
+        <div>
+          <div class="brand-text">GreenFuel</div>
+          <div class="brand-role" id="sidebar-role-label">Loading…</div>
+        </div>
+      </div>
+      <nav class="sidebar-nav" id="sidebar-nav"></nav>
+      <div class="sidebar-footer">
+        <button class="user-row account-trigger" type="button" onclick="openAccountSettings()" title="Account settings">
+          <div class="avatar" id="user-avatar">?</div>
+          <div>
+            <div class="user-name" id="user-name-display">—</div>
+            <div class="user-role-txt" id="user-role-display">—</div>
+          </div>
+        </button>
+        <button class="btn-logout" onclick="doLogout()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+          Sign out
+        </button>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="content-inner">
+
+        <div id="page-host"></div>
+
+      </div><!-- .content-inner -->
+    </div><!-- .content -->
+  </div><!-- #main-screen -->
+</div><!-- #app -->
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="js/api.js?v=20260928-login-branchless-dark"></script>
+<script src="js/app.js?v=20260928-login-branchless-dark"></script>
+<script src="js/fuelsight-runtime.js?v=20260922-pos-fit2"></script>
+</body>
+</html>

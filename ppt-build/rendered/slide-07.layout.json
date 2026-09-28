@@ -1,0 +1,804 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/vo46nm",
+    "id": "vo46nm",
+    "slide": 7,
+    "layoutId": "9e055c77-6941-4510-bb7d-99fee8e4e068",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "11663972-1b7a-4c2b-b988-ee28997c296b",
+    "masterLayoutName": "Master",
+    "backgroundColor": "#F7FBF8",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "theme": {
+    "colorSchemeName": "FuelSight Green",
+    "colors": {
+      "accent1": "#147A3A",
+      "accent2": "#5BBF22",
+      "accent3": "#D97706",
+      "accent4": "#2563EB",
+      "accent5": "#0EA5E9",
+      "accent6": "#16A34A",
+      "bg1": "#FFFFFF",
+      "bg2": "#F7FBF8",
+      "tx1": "#0B1720",
+      "tx2": "#586B63",
+      "dk1": "#000000",
+      "dk2": "#0F2D20",
+      "lt1": "#FFFFFF",
+      "lt2": "#E5EFE9",
+      "hlink": "#2563EB",
+      "folHlink": "#6D28D9"
+    },
+    "typefaces": [
+      "+mn-lt"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "9e055c77-6941-4510-bb7d-99fee8e4e068",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "11663972-1b7a-4c2b-b988-ee28997c296b",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "11663972-1b7a-4c2b-b988-ee28997c296b",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "image",
+      "scope": "slide",
+      "aid": "im/7mp0jm5k",
+      "id": "1",
+      "bbox": [
+        58,
+        38,
+        48,
+        48
+      ],
+      "alt": "GreenFuel Fuel Safe logo",
+      "contentType": "image/png",
+      "imageFit": "contain",
+      "asset": {
+        "assetId": "f7a7028a-e01e-4eaf-9668-ab382f31d34e",
+        "contentType": "image/png",
+        "byteLength": 31721
+      }
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/lkfihcru",
+      "id": "2",
+      "bbox": [
+        120,
+        43,
+        480,
+        24
+      ],
+      "geometry": "rect",
+      "text": "MANAGER PORTAL",
+      "textPreview": "MANAGER PORTAL",
+      "resolvedFontSize": 12,
+      "resolvedTextStyle": {
+        "fontSize": 12,
+        "typeface": "+mn-lt",
+        "color": "#147A3A",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "MANAGER PORTAL"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "MANAGER PORTAL",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "color": "#147A3A",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "MANAGER PORTAL",
+              "fontSize": 12,
+              "color": "#147A3A",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/kj6ho7q9",
+      "id": "3",
+      "bbox": [
+        120,
+        68,
+        700,
+        42
+      ],
+      "geometry": "rect",
+      "text": "Tabbed Daily Sales Entry",
+      "textPreview": "Tabbed Daily Sales Entry",
+      "resolvedFontSize": 34,
+      "resolvedTextStyle": {
+        "fontSize": 34,
+        "typeface": "+mn-lt",
+        "color": "#0B1720",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Tabbed Daily Sales Entry"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Tabbed Daily Sales Entry",
+          "resolvedTextStyle": {
+            "fontSize": 34,
+            "color": "#0B1720",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Tabbed Daily Sales Entry",
+              "fontSize": 34,
+              "color": "#0B1720",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/bux0bi9s",
+      "id": "4",
+      "bbox": [
+        120,
+        112,
+        760,
+        34
+      ],
+      "geometry": "rect",
+      "text": "Daily entry sections are organized into tabs to reduce scrolling for managers.",
+      "textPreview": "Daily entry sections are organized into tabs to reduce scrolling for managers.",
+      "resolvedFontSize": 17,
+      "resolvedTextStyle": {
+        "fontSize": 17,
+        "typeface": "+mn-lt",
+        "color": "#586B63",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Daily entry sections are organized into tabs to reduce scrolling for managers."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Daily entry sections are organized into tabs to reduce scrolling for managers.",
+          "resolvedTextStyle": {
+            "fontSize": 17,
+            "color": "#586B63"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Daily entry sections are organized into tabs to reduce scrolling for managers.",
+              "fontSize": 17,
+              "color": "#586B63"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/at4zixs7",
+      "id": "5",
+      "bbox": [
+        58,
+        154,
+        1164,
+        2
+      ],
+      "geometry": "rect",
+      "fillColor": "#DCE8E1",
+      "lineWidth": 0
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/xwfidsry",
+      "id": "6",
+      "bbox": [
+        50,
+        166,
+        796,
+        504
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#DCE8E1",
+      "lineWidth": 1
+    },
+    {
+      "order": 7,
+      "kind": "image",
+      "scope": "slide",
+      "aid": "im/5k7ihc7e",
+      "id": "7",
+      "bbox": [
+        58,
+        174,
+        780,
+        488
+      ],
+      "geometry": "roundRect",
+      "alt": "Tabbed Daily Sales Entry screenshot",
+      "contentType": "image/png",
+      "imageFit": "contain",
+      "imageMask": {
+        "geometry": "roundRect",
+        "adjustmentList": [
+          {
+            "name": "adj",
+            "formula": "val 2459"
+          }
+        ]
+      },
+      "asset": {
+        "assetId": "38698663-4fad-4613-828b-36d36a75f8f0",
+        "contentType": "image/png",
+        "byteLength": 145627
+      }
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/nqd07i9w",
+      "id": "8",
+      "bbox": [
+        885,
+        174,
+        337,
+        488
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#DCE8E1",
+      "lineWidth": 1
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/2p4zedsb",
+      "id": "9",
+      "bbox": [
+        885,
+        174,
+        337,
+        8
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#147A3A",
+      "lineColor": "#147A3A",
+      "lineWidth": 0
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/sr2xkjil",
+      "id": "10",
+      "bbox": [
+        912,
+        204,
+        282,
+        60
+      ],
+      "geometry": "rect",
+      "text": "Daily report form",
+      "textPreview": "Daily report form",
+      "resolvedFontSize": 25,
+      "resolvedTextStyle": {
+        "fontSize": 25,
+        "typeface": "+mn-lt",
+        "color": "#0B1720",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Daily report form"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Daily report form",
+          "resolvedTextStyle": {
+            "fontSize": 25,
+            "color": "#0B1720",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Daily report form",
+              "fontSize": 25,
+              "color": "#0B1720",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/tsbetoj6",
+      "id": "11",
+      "bbox": [
+        914,
+        293,
+        8,
+        8
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#147A3A",
+      "lineColor": "#147A3A",
+      "lineWidth": 0
+    },
+    {
+      "order": 12,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/6pkvit0f",
+      "id": "12",
+      "bbox": [
+        936,
+        286,
+        245,
+        52
+      ],
+      "geometry": "rect",
+      "text": "Shift information remains visible above the tabs.",
+      "textPreview": "Shift information remains visible above the tabs.",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#586B63",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Shift information remains visible"
+          },
+          {
+            "index": 2,
+            "text": "above the tabs."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Shift information remains visible above the tabs.",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#586B63"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Shift information remains visible above the tabs.",
+              "fontSize": 16,
+              "color": "#586B63"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 13,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/rqtwry10",
+      "id": "13",
+      "bbox": [
+        914,
+        360,
+        8,
+        8
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#147A3A",
+      "lineColor": "#147A3A",
+      "lineWidth": 0
+    },
+    {
+      "order": 14,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/kn2dgjip",
+      "id": "14",
+      "bbox": [
+        936,
+        353,
+        245,
+        52
+      ],
+      "geometry": "rect",
+      "text": "Inventory, pump readings, cash and expenses, and submission are separated.",
+      "textPreview": "Inventory, pump readings, cash and expenses, and submission are separated.",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#586B63",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Inventory, pump readings, cash"
+          },
+          {
+            "index": 2,
+            "text": "and expenses, and submission are"
+          },
+          {
+            "index": 3,
+            "text": "separated."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Inventory, pump readings, cash and expenses, and submission are separated.",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#586B63"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Inventory, pump readings, cash and expenses, and submission are separated.",
+              "fontSize": 16,
+              "color": "#586B63"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 15,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/5obepoja",
+      "id": "15",
+      "bbox": [
+        914,
+        427,
+        8,
+        8
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#147A3A",
+      "lineColor": "#147A3A",
+      "lineWidth": 0
+    },
+    {
+      "order": 16,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/i10ve9kj",
+      "id": "16",
+      "bbox": [
+        936,
+        420,
+        245,
+        52
+      ],
+      "geometry": "rect",
+      "text": "Submitted daily entries feed the weekly report workflow.",
+      "textPreview": "Submitted daily entries feed the weekly report workflow.",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#586B63",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Submitted daily entries feed the"
+          },
+          {
+            "index": 2,
+            "text": "weekly report workflow."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Submitted daily entries feed the weekly report workflow.",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#586B63"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Submitted daily entries feed the weekly report workflow.",
+              "fontSize": 16,
+              "color": "#586B63"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 17,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/jmtwne14",
+      "id": "17",
+      "bbox": [
+        912,
+        582,
+        282,
+        1
+      ],
+      "geometry": "rect",
+      "fillColor": "#DCE8E1",
+      "lineWidth": 0
+    },
+    {
+      "order": 18,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ojmxs3it",
+      "id": "18",
+      "bbox": [
+        912,
+        602,
+        130,
+        22
+      ],
+      "geometry": "rect",
+      "text": "Objective link",
+      "textPreview": "Objective link",
+      "resolvedFontSize": 12,
+      "resolvedTextStyle": {
+        "fontSize": 12,
+        "typeface": "+mn-lt",
+        "color": "#586B63",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Objective link"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Objective link",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "color": "#586B63",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Objective link",
+              "fontSize": 12,
+              "color": "#586B63",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 19,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/pkve18je",
+      "id": "19",
+      "bbox": [
+        912,
+        627,
+        282,
+        32
+      ],
+      "geometry": "rect",
+      "text": "Objectives 1, 2.5",
+      "textPreview": "Objectives 1, 2.5",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#147A3A",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Objectives 1, 2.5"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Objectives 1, 2.5",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#147A3A",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Objectives 1, 2.5",
+              "fontSize": 16,
+              "color": "#147A3A",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}

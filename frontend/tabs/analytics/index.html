@@ -1,0 +1,24 @@
+<!-- ANALYTICS -->
+        <div class="page" id="page-analytics">
+          <div class="page-header">
+            <div class="page-title">Analytics</div>
+            <div class="page-sub">Network insights, alerts, and decision support</div>
+          </div>
+          <div class="stat-grid" id="analytics-stat-grid"></div>
+          <div id="analytics-alert-list" style="margin-bottom:1rem"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
+            <div class="card">
+              <div class="card-title">Revenue by Fuel Type</div>
+              <div class="chart-wrap"><canvas id="analytics-fuel-chart" role="img" aria-label="Revenue by fuel">Fuel revenue.</canvas></div>
+            </div>
+            <div class="card">
+              <div class="card-title">Daily Volume Trend</div>
+              <div class="chart-wrap"><canvas id="analytics-volume-chart" role="img" aria-label="Daily volume">Volume trend.</canvas></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Decision Support Insights</div>
+            <div class="card-desc">Computed observations from your sales data</div>
+            <div id="insights-container" style="display:flex;flex-direction:column;gap:10px;margin-top:0.75rem"></div>
+          </div>
+        </div>

@@ -1,0 +1,52 @@
+<!-- POS TERMINAL -->
+        <div class="page" id="page-pos">
+          <div class="page-header">
+            <div class="page-title">POS Terminal</div>
+            <div class="page-sub" id="pos-branch-sub">Recording fuel sales</div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;align-items:start">
+            <div>
+              <div class="card">
+                <div class="card-title">Select Fuel Type</div>
+                <div class="card-desc">Choose the fuel being dispensed</div>
+                <div class="fuel-grid" id="fuel-buttons"></div>
+              </div>
+              <div class="card">
+                <div class="card-title">Transaction Details</div>
+                <div class="card-desc">Enter volume and confirm sale</div>
+                <div class="form-row">
+                  <div class="form-field">
+                    <label>Liters</label>
+                    <input type="number" id="pos-liters" placeholder="0.00" min="0.01" step="0.01" oninput="calcPosTotal()"/>
+                    <span class="form-err" id="err-liters">Enter valid liters (> 0)</span>
+                  </div>
+                  <div class="form-field">
+                    <label>Price / Liter (₱)</label>
+                    <input type="number" id="pos-price" placeholder="0.00" readonly style="opacity:0.6;cursor:not-allowed"/>
+                  </div>
+                </div>
+                <div class="form-row cols-1">
+                  <div class="form-field">
+                    <label>Customer</label>
+                    <input type="text" id="pos-customer" placeholder="Walk-in customer"/>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div class="pos-total-box">
+                <div class="pos-total-label">Total Amount</div>
+                <div class="pos-total-amount" id="pos-total-display">₱0.00</div>
+                <div class="pos-breakdown-text" id="pos-breakdown-text">Select fuel type and enter liters</div>
+                <button class="btn-pos-confirm" onclick="submitTransaction()">✓ &nbsp;Process Transaction</button>
+              </div>
+              <div class="card" style="margin-top:1rem">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+                  <div class="card-title" style="margin-bottom:0">Recent Transactions</div>
+                  <span class="badge badge-green" id="today-count-badge">0 today</span>
+                </div>
+                <div id="pos-recent-list"></div>
+              </div>
+            </div>
+          </div>
+        </div>

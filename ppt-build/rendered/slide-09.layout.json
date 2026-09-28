@@ -1,0 +1,804 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/wolj83",
+    "id": "wolj83",
+    "slide": 9,
+    "layoutId": "9e055c77-6941-4510-bb7d-99fee8e4e068",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "11663972-1b7a-4c2b-b988-ee28997c296b",
+    "masterLayoutName": "Master",
+    "backgroundColor": "#F7FBF8",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "theme": {
+    "colorSchemeName": "FuelSight Green",
+    "colors": {
+      "accent1": "#147A3A",
+      "accent2": "#5BBF22",
+      "accent3": "#D97706",
+      "accent4": "#2563EB",
+      "accent5": "#0EA5E9",
+      "accent6": "#16A34A",
+      "bg1": "#FFFFFF",
+      "bg2": "#F7FBF8",
+      "tx1": "#0B1720",
+      "tx2": "#586B63",
+      "dk1": "#000000",
+      "dk2": "#0F2D20",
+      "lt1": "#FFFFFF",
+      "lt2": "#E5EFE9",
+      "hlink": "#2563EB",
+      "folHlink": "#6D28D9"
+    },
+    "typefaces": [
+      "+mn-lt"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "9e055c77-6941-4510-bb7d-99fee8e4e068",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "11663972-1b7a-4c2b-b988-ee28997c296b",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "11663972-1b7a-4c2b-b988-ee28997c296b",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "image",
+      "scope": "slide",
+      "aid": "im/8nutsfmd",
+      "id": "1",
+      "bbox": [
+        58,
+        38,
+        48,
+        48
+      ],
+      "alt": "GreenFuel Fuel Safe logo",
+      "contentType": "image/png",
+      "imageFit": "contain",
+      "asset": {
+        "assetId": "b39c34fc-c8ee-439e-9501-95744e465022",
+        "contentType": "image/png",
+        "byteLength": 31721
+      }
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/2tsvqdcf",
+      "id": "2",
+      "bbox": [
+        120,
+        43,
+        480,
+        24
+      ],
+      "geometry": "rect",
+      "text": "WEEKLY REPORTING",
+      "textPreview": "WEEKLY REPORTING",
+      "resolvedFontSize": 12,
+      "resolvedTextStyle": {
+        "fontSize": 12,
+        "typeface": "+mn-lt",
+        "color": "#147A3A",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "WEEKLY REPORTING"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "WEEKLY REPORTING",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "color": "#147A3A",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "WEEKLY REPORTING",
+              "fontSize": 12,
+              "color": "#147A3A",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/3u1wjid0",
+      "id": "3",
+      "bbox": [
+        120,
+        68,
+        700,
+        42
+      ],
+      "geometry": "rect",
+      "text": "Weekly Consolidated Report",
+      "textPreview": "Weekly Consolidated Report",
+      "resolvedFontSize": 34,
+      "resolvedTextStyle": {
+        "fontSize": 34,
+        "typeface": "+mn-lt",
+        "color": "#0B1720",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Weekly Consolidated Report"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Weekly Consolidated Report",
+          "resolvedTextStyle": {
+            "fontSize": 34,
+            "color": "#0B1720",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Weekly Consolidated Report",
+              "fontSize": 34,
+              "color": "#0B1720",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/cjuxwnuh",
+      "id": "4",
+      "bbox": [
+        120,
+        112,
+        760,
+        34
+      ],
+      "geometry": "rect",
+      "text": "Managers choose the exact date span before submitting weekly reports to the owner.",
+      "textPreview": "Managers choose the exact date span before submitting weekly reports to the owner.",
+      "resolvedFontSize": 17,
+      "resolvedTextStyle": {
+        "fontSize": 17,
+        "typeface": "+mn-lt",
+        "color": "#586B63",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Managers choose the exact date span before submitting weekly reports to the owner."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Managers choose the exact date span before submitting weekly reports to the owner.",
+          "resolvedTextStyle": {
+            "fontSize": 17,
+            "color": "#586B63"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Managers choose the exact date span before submitting weekly reports to the owner.",
+              "fontSize": 17,
+              "color": "#586B63"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/dk3epsv2",
+      "id": "5",
+      "bbox": [
+        58,
+        154,
+        1164,
+        2
+      ],
+      "geometry": "rect",
+      "fillColor": "#DCE8E1",
+      "lineWidth": 0
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/qhsfudcr",
+      "id": "6",
+      "bbox": [
+        50,
+        166,
+        796,
+        504
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#DCE8E1",
+      "lineWidth": 1
+    },
+    {
+      "order": 7,
+      "kind": "image",
+      "scope": "slide",
+      "aid": "im/apwbup43",
+      "id": "7",
+      "bbox": [
+        58,
+        174,
+        780,
+        488
+      ],
+      "geometry": "roundRect",
+      "alt": "Weekly Consolidated Report screenshot",
+      "contentType": "image/png",
+      "imageFit": "contain",
+      "imageMask": {
+        "geometry": "roundRect",
+        "adjustmentList": [
+          {
+            "name": "adj",
+            "formula": "val 2459"
+          }
+        ]
+      },
+      "asset": {
+        "assetId": "76a4220e-6740-4449-9f66-858abc0053dd",
+        "contentType": "image/png",
+        "byteLength": 89657
+      }
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/snqdk3ud",
+      "id": "8",
+      "bbox": [
+        885,
+        174,
+        337,
+        488
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#DCE8E1",
+      "lineWidth": 1
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/tozedovy",
+      "id": "9",
+      "bbox": [
+        885,
+        174,
+        337,
+        8
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#D97706",
+      "lineColor": "#D97706",
+      "lineWidth": 0
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/9ozqhcf2",
+      "id": "10",
+      "bbox": [
+        912,
+        204,
+        282,
+        60
+      ],
+      "geometry": "rect",
+      "text": "Report handoff",
+      "textPreview": "Report handoff",
+      "resolvedFontSize": 25,
+      "resolvedTextStyle": {
+        "fontSize": 25,
+        "typeface": "+mn-lt",
+        "color": "#0B1720",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Report handoff"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Report handoff",
+          "resolvedTextStyle": {
+            "fontSize": 25,
+            "color": "#0B1720",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Report handoff",
+              "fontSize": 25,
+              "color": "#0B1720",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/8nq987ex",
+      "id": "11",
+      "bbox": [
+        914,
+        293,
+        8,
+        8
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#D97706",
+      "lineColor": "#D97706",
+      "lineWidth": 0
+    },
+    {
+      "order": 12,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/7mh8f2xc",
+      "id": "12",
+      "bbox": [
+        936,
+        286,
+        245,
+        52
+      ],
+      "geometry": "rect",
+      "text": "Weekly report span can be set using start and end dates.",
+      "textPreview": "Weekly report span can be set using start and end dates.",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#586B63",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Weekly report span can be set"
+          },
+          {
+            "index": 2,
+            "text": "using start and end dates."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Weekly report span can be set using start and end dates.",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#586B63"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Weekly report span can be set using start and end dates.",
+              "fontSize": 16,
+              "color": "#586B63"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 13,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ml8r6hwr",
+      "id": "13",
+      "bbox": [
+        914,
+        360,
+        8,
+        8
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#D97706",
+      "lineColor": "#D97706",
+      "lineWidth": 0
+    },
+    {
+      "order": 14,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/hcjalwfe",
+      "id": "14",
+      "bbox": [
+        936,
+        353,
+        245,
+        52
+      ],
+      "geometry": "rect",
+      "text": "Fuel breakdown and daily entry summary come from submitted daily entries.",
+      "textPreview": "Fuel breakdown and daily entry summary come from submitted daily entries.",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#586B63",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Fuel breakdown and daily entry"
+          },
+          {
+            "index": 2,
+            "text": "summary come from submitted"
+          },
+          {
+            "index": 3,
+            "text": "daily entries."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Fuel breakdown and daily entry summary come from submitted daily entries.",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#586B63"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Fuel breakdown and daily entry summary come from submitted daily entries.",
+              "fontSize": 16,
+              "color": "#586B63"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 15,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/wba9cret",
+      "id": "15",
+      "bbox": [
+        914,
+        427,
+        8,
+        8
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#D97706",
+      "lineColor": "#D97706",
+      "lineWidth": 0
+    },
+    {
+      "order": 16,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/vahsjmx8",
+      "id": "16",
+      "bbox": [
+        936,
+        420,
+        245,
+        52
+      ],
+      "geometry": "rect",
+      "text": "Owner portal only sees reports after manager submission.",
+      "textPreview": "Owner portal only sees reports after manager submission.",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#586B63",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Owner portal only sees reports"
+          },
+          {
+            "index": 2,
+            "text": "after manager submission."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Owner portal only sees reports after manager submission.",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#586B63"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Owner portal only sees reports after manager submission.",
+              "fontSize": 16,
+              "color": "#586B63"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 17,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/u98rahwn",
+      "id": "17",
+      "bbox": [
+        912,
+        582,
+        282,
+        1
+      ],
+      "geometry": "rect",
+      "fillColor": "#DCE8E1",
+      "lineWidth": 0
+    },
+    {
+      "order": 18,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/5gjapwfa",
+      "id": "18",
+      "bbox": [
+        912,
+        602,
+        130,
+        22
+      ],
+      "geometry": "rect",
+      "text": "Objective link",
+      "textPreview": "Objective link",
+      "resolvedFontSize": 12,
+      "resolvedTextStyle": {
+        "fontSize": 12,
+        "typeface": "+mn-lt",
+        "color": "#586B63",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Objective link"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Objective link",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "color": "#586B63",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Objective link",
+              "fontSize": 12,
+              "color": "#586B63",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 19,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/4fa9grep",
+      "id": "19",
+      "bbox": [
+        912,
+        627,
+        282,
+        32
+      ],
+      "geometry": "rect",
+      "text": "Objectives 2.5, 2.6",
+      "textPreview": "Objectives 2.5, 2.6",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#D97706",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Objectives 2.5, 2.6"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Objectives 2.5, 2.6",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#D97706",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Objectives 2.5, 2.6",
+              "fontSize": 16,
+              "color": "#D97706",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}

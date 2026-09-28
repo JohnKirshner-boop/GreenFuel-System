@@ -1,0 +1,31 @@
+<!-- SHIFT VERIFICATION -->
+        <div class="page" id="page-verification">
+          <div class="page-header">
+            <div class="page-title">Shift Verification</div>
+            <div class="page-sub">Review and approve POS shift records before consolidation</div>
+          </div>
+          <div class="alert alert-info">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+            <span>Records stay <strong>Pending</strong> until verified here. Only verified records flow into reports and analytics.</span>
+          </div>
+          <div class="tab-bar">
+            <button class="tab-btn active" onclick="switchTab(this,'vtab-pending')">
+              Pending <span id="pending-badge" class="badge badge-amber" style="margin-left:6px;font-size:10px">0</span>
+            </button>
+            <button class="tab-btn" onclick="switchTab(this,'vtab-history')">History</button>
+          </div>
+          <div class="tab-pane active" id="vtab-pending">
+            <div class="card">
+              <div class="card-title">Pending Shift Records</div>
+              <div class="card-desc">Awaiting manager verification</div>
+              <div class="tbl-wrap" id="pending-table"></div>
+            </div>
+          </div>
+          <div class="tab-pane" id="vtab-history">
+            <div class="card">
+              <div class="card-title">Verification History</div>
+              <div class="card-desc">Approved, recalibrated, and flagged records</div>
+              <div class="tbl-wrap" id="history-table"></div>
+            </div>
+          </div>
+        </div>

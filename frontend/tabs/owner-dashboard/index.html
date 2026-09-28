@@ -1,0 +1,21 @@
+<!-- OWNER DASHBOARD -->
+        <div class="page" id="page-owner-dash">
+          <div class="page-header">
+            <div class="page-title">Owner Dashboard</div>
+            <div class="page-sub">Network-wide performance across all branches</div>
+          </div>
+          <div class="stat-grid" id="owner-stat-grid"></div>
+          <div id="owner-insight-banner" class="alert alert-success" style="margin-bottom:1rem"></div>
+          <div style="display:grid;grid-template-columns:3fr 2fr;gap:1rem">
+            <div class="card">
+              <div class="card-title">All-Branch Sales Trend</div>
+              <div class="card-desc">Last 7 days grouped by branch</div>
+              <div class="chart-wrap"><canvas id="owner-trend-chart" role="img" aria-label="Multi-branch trend">Branch sales trend.</canvas></div>
+            </div>
+            <div class="card">
+              <div class="card-title">Network Fuel Mix</div>
+              <div class="card-desc">Revenue by fuel type</div>
+              <div class="chart-wrap-sm"><canvas id="owner-fuel-chart" role="img" aria-label="Network fuel mix">Fuel distribution.</canvas></div>
+            </div>
+          </div>
+        </div>
