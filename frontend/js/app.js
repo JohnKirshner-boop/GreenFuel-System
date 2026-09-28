@@ -477,6 +477,7 @@ async function loadPage(pageId) {
 // ============================================================
 let accountPhotoData = '';
 let accountThemeSelection = 'light';
+let accountThemeSaveSeq = 0;
 
 function accountBranchLabel() {
   if (currentUser?.role === 'owner') return 'Network-wide access';
@@ -546,10 +547,37 @@ function removeAccountPhoto() {
   renderAccountAvatarPreview();
 }
 
-function setAccountTheme(theme) {
-  accountThemeSelection = normalizeTheme(theme);
-  applyTheme(accountThemeSelection);
+async function setAccountTheme(theme) {
+  const selected = normalizeTheme(theme);
+  const previous = normalizeTheme(currentUser?.theme_preference || accountThemeSelection || localStorage.getItem('greenfuel-theme') || 'light');
+  accountThemeSelection = selected;
+  if (currentUser) currentUser.theme_preference = selected;
+  applyTheme(selected);
   updateAccountThemeButtons();
+
+  if (!currentUser) return;
+  const seq = ++accountThemeSaveSeq;
+  const buttons = document.querySelectorAll('.theme-choice');
+  buttons.forEach(btn => btn.disabled = true);
+
+  try {
+    const updatedUser = await API.accountThemeUpdate(selected);
+    if (seq !== accountThemeSaveSeq) return;
+    currentUser = { ...currentUser, ...updatedUser };
+    accountThemeSelection = normalizeTheme(currentUser.theme_preference || selected);
+    applyTheme(accountThemeSelection);
+    updateAccountThemeButtons();
+    showToast(`${accountThemeSelection === 'dark' ? 'Night' : 'Light'} mode saved.`);
+  } catch(e) {
+    if (seq !== accountThemeSaveSeq) return;
+    accountThemeSelection = previous;
+    if (currentUser) currentUser.theme_preference = previous;
+    applyTheme(previous);
+    updateAccountThemeButtons();
+    showToast(e.message || 'Could not save display mode.', 'error');
+  } finally {
+    if (seq === accountThemeSaveSeq) buttons.forEach(btn => btn.disabled = false);
+  }
 }
 
 async function saveAccountSettings() {

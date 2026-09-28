@@ -235,6 +235,18 @@ switch ($action) {
         $_SESSION['user']['theme_preference'] = $theme;
         jsonSuccess($_SESSION['user'], 'Account settings updated.');
 
+    case 'update_theme':
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonError('POST required', 405);
+        $u = requireAuth();
+        $b = getBody();
+        $theme = authTheme(trim($b['theme_preference'] ?? 'light'));
+
+        $stmt = $db->prepare('UPDATE users SET theme_preference=? WHERE id=?');
+        $stmt->execute([$theme, $u['id']]);
+
+        $_SESSION['user']['theme_preference'] = $theme;
+        jsonSuccess($_SESSION['user'], 'Display mode updated.');
+
     case 'change_password':
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonError('POST required', 405);
         $u = requireAuth();

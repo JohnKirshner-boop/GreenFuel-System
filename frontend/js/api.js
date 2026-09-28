@@ -30,6 +30,7 @@ const API = {
   requestPasswordReset: (email)   => apiFetch('auth.php', { action: 'request_password_reset' }, { method: 'POST', body: JSON.stringify({ email }) }),
   resetPassword: (token, password) => apiFetch('auth.php', { action: 'reset_password' }, { method: 'POST', body: JSON.stringify({ token, password }) }),
   accountUpdate: (data)          => apiFetch('auth.php', { action: 'update_profile' }, { method: 'POST', body: JSON.stringify(data) }),
+  accountThemeUpdate: (theme_preference) => apiFetch('auth.php', { action: 'update_theme' }, { method: 'POST', body: JSON.stringify({ theme_preference }) }),
   changePassword: (data)         => apiFetch('auth.php', { action: 'change_password' }, { method: 'POST', body: JSON.stringify(data) }),
 
   // BRANCHES + FUELS
