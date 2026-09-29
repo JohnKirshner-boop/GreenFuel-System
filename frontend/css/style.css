@@ -149,6 +149,10 @@ body{font-family:'DM Sans',sans-serif;color:var(--text);background:var(--bg);min
 :root[data-theme="dark"] .login-error{background:#3a1717;color:#fecaca}
 :root[data-theme="dark"] .forgot-result{background:#0f2d1d;border-color:#1f9c55;color:#bbf7d0}
 :root[data-theme="dark"] .forgot-result a{color:#7ee6a4}
+:root[data-theme="dark"] .notification-item,
+:root[data-theme="dark"] .notification-empty,
+:root[data-theme="dark"] .notification-arrow{background:var(--surface);border-color:var(--border);color:var(--text)}
+:root[data-theme="dark"] .notification-item:hover{background:#17291f}
 #app{display:flex;flex-direction:column;min-height:100vh}
 .screen{display:none;flex:1;flex-direction:column}
 .screen.active{display:flex}
@@ -227,6 +231,15 @@ body{font-family:'DM Sans',sans-serif;color:var(--text);background:var(--bg);min
 .nav-item:hover{background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.9)}
 .nav-item.active{background:var(--green);color:white;font-weight:500}
 .nav-item svg{width:15px;height:15px;flex-shrink:0}
+.sidebar-notifications{padding:0 .75rem .75rem}
+.notification-trigger{width:100%;display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:9px;align-items:center;border:1px solid rgba(255,255,255,.08);border-radius:9px;background:rgba(255,255,255,.04);color:rgba(255,255,255,.76);padding:10px;cursor:pointer;text-align:left;font-family:'DM Sans',sans-serif}
+.notification-trigger:hover,.notification-trigger.has-alerts{background:rgba(36,181,101,.12);border-color:rgba(126,230,164,.18);color:white}
+.notification-trigger-icon{width:30px;height:30px;border-radius:8px;background:rgba(255,255,255,.07);display:flex;align-items:center;justify-content:center;color:var(--green)}
+.notification-trigger-icon svg{width:16px;height:16px}
+.notification-trigger b{display:block;font-size:12px;line-height:1.1}
+.notification-trigger small{display:block;margin-top:3px;font-size:10px;line-height:1.2;color:rgba(255,255,255,.52)}
+.notification-trigger em{min-width:24px;height:24px;border-radius:999px;background:rgba(255,255,255,.09);display:flex;align-items:center;justify-content:center;font-style:normal;font-weight:900;font-size:11px}
+.notification-trigger.has-alerts em{background:#f59e0b;color:#111827}
 .sidebar-footer{padding:1rem 1.25rem;border-top:1px solid rgba(255,255,255,0.08)}
 .user-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .account-trigger{width:100%;border:1px solid transparent;background:transparent;border-radius:var(--rad-sm);padding:7px;text-align:left;
@@ -645,9 +658,12 @@ tbody tr:hover td{background:var(--surface)}
 .price-fuel-dot{width:12px;height:12px;margin-top:3px;border-radius:999px;background:linear-gradient(135deg,var(--green),#3b82f6);box-shadow:0 0 0 4px rgba(26,122,60,.1);flex-shrink:0}
 .price-editor{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:center}
 .price-editor span{height:38px;display:flex;align-items:center;border:1px solid var(--border);border-radius:8px;background:#eef5f1;color:var(--muted);font-size:11px;font-weight:900;padding:0 10px}
-.price-editor input{width:100%;height:38px;border:1px solid var(--border);border-radius:8px;background:#fff;color:#0f172a;font:800 14px 'DM Mono',monospace;padding:8px 10px}
+.price-editor input{width:100%;min-width:88px;height:38px;border:1px solid var(--border);border-radius:8px;background:#fff;color:#0f172a;font:800 14px 'DM Mono',monospace;padding:8px 10px}
+.price-editor input[type=number]{appearance:textfield}
+.price-editor input::-webkit-outer-spin-button,.price-editor input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .price-editor input:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(26,122,60,.1)}
 .price-editor button{height:38px;white-space:nowrap}
+.price-editor.price-editor-ceiling{grid-template-columns:56px minmax(92px,1fr) auto}
 .price-editor.price-editor-request{grid-template-columns:auto minmax(0,1fr)}
 .price-readout-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .price-readout-grid.single{grid-template-columns:1fr}
@@ -707,7 +723,7 @@ tbody tr:hover td{background:var(--surface)}
 .cashier-price-submit-grid .btn-green{width:100%}
 .owner-price-page .price-control-card,.manager-approval-page .price-control-card{border-top:0}
 .owner-price-page .ceiling-card,.manager-approval-page .branch-current-card,.branch-price-card{padding:20px}
-.ceiling-price-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+.ceiling-price-grid{grid-template-columns:repeat(2,minmax(260px,1fr))}
 .owner-price-table table{min-width:780px}
 .owner-price-table td:first-child,.owner-price-table th:first-child{min-width:210px}
 .owner-price-table td:not(:first-child) b{font:900 14px 'DM Mono',monospace;color:#0f7a3c}
@@ -717,6 +733,20 @@ tbody tr:hover td{background:var(--surface)}
 .manager-branch-wrap{display:none;border:1px solid var(--border);border-radius:10px;background:#f8fbf9;padding:11px;margin-bottom:12px}.manager-branch-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}.manager-branch-head span{font-size:12px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}.manager-branch-list{display:grid;gap:8px}.manager-branch-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center}.manager-branch-row select{margin-top:0!important}.manager-branch-row button{height:38px;white-space:nowrap}.password-locked-note{display:none;font-size:12px;color:#7c2d12;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:8px 10px;margin:-4px 0 12px!important}
 .gf-modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9998;display:flex;align-items:center;justify-content:center;padding:24px}
 .gf-modal{background:#fff;border-radius:8px;box-shadow:0 30px 80px rgba(0,0,0,.35);width:min(560px,95vw);max-height:90vh;overflow:auto;position:relative;padding:24px}
+.notification-modal{width:min(660px,95vw)}
+.notification-list{display:grid;gap:10px;margin-top:12px}
+.notification-item{width:100%;display:grid;grid-template-columns:12px minmax(0,1fr) auto;gap:12px;align-items:center;border:1px solid var(--border);border-radius:10px;background:#fbfdfb;padding:13px 14px;text-align:left;cursor:pointer;font-family:'DM Sans',sans-serif;color:var(--text)}
+.notification-item:hover{border-color:#9bd7b5;box-shadow:0 8px 20px rgba(15,23,42,.08);background:#f5fbf7}
+.notification-dot{width:10px;height:10px;border-radius:999px;background:#2563eb;box-shadow:0 0 0 4px rgba(37,99,235,.1)}
+.notification-item.warn .notification-dot{background:#f59e0b;box-shadow:0 0 0 4px rgba(245,158,11,.14)}
+.notification-item.danger .notification-dot{background:#dc2626;box-shadow:0 0 0 4px rgba(220,38,38,.12)}
+.notification-copy b{display:block;font-size:14px;line-height:1.25;color:var(--text)}
+.notification-copy small{display:block;margin-top:3px;font-size:12px;line-height:1.4;color:var(--muted)}
+.notification-copy em{display:block;margin-top:6px;font-style:normal;font-size:11px;font-weight:800;color:var(--green)}
+.notification-arrow{border:1px solid var(--border);border-radius:999px;padding:6px 10px;font-size:11px;font-weight:900;color:var(--green);background:#fff}
+.notification-empty{min-height:120px;border:1px dashed var(--border);border-radius:10px;background:#fbfdfb;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:5px;color:var(--muted);padding:18px}
+.notification-empty b{font-size:15px;color:var(--text)}
+.notification-empty span{font-size:12px}
 .gf-modal.wide{width:min(920px,95vw);padding:0}.gf-modal.wide>h2,.gf-modal.wide>p{padding-left:24px}.gf-modal.wide>h2{padding-top:22px}
 .gf-modal h2{font-size:19px;margin-bottom:6px}.gf-modal p{color:var(--muted);font-size:13px;margin-bottom:18px}.gf-modal-x{position:absolute;right:16px;top:14px;border:none;background:transparent;font-size:22px;cursor:pointer;color:var(--muted)}
 .gf-modal-grid{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}.gf-modal-grid>div{padding:18px}.gf-modal-grid>div+div{border-left:1px solid var(--border)}

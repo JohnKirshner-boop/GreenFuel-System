@@ -4,6 +4,8 @@ let currentUser = null;
 let selectedFuel = null;
 let allFuels = [];
 const charts = {};
+let gfNotifications = [];
+let gfNotificationTimer = null;
 const destroyChart = k => { if (charts[k]) { try { charts[k].destroy(); } catch(e){} delete charts[k]; }};
 const loadedPages = new Set();
 const PAGE_FRAGMENTS = {
@@ -275,6 +277,7 @@ function returnToLoginFromForgot() {
 }
 
 function finishLogoutClientSide() {
+  stopNotificationRefresh();
   if (typeof gfActiveShift !== 'undefined') gfActiveShift = null;
   window.fsActiveShift = null;
   window.gfPendingLogoutAfterShift = false;
@@ -403,6 +406,7 @@ function setupSidebar() {
   items.forEach((item, i) => {
     const btn = document.createElement('button');
     btn.className = 'nav-item' + (i === 0 ? ' active' : '');
+    btn.dataset.page = item.page;
     btn.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="${item.icon}"/></svg>${item.label}`;
     btn.onclick = () => {
       document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
@@ -412,6 +416,8 @@ function setupSidebar() {
     };
     nav.appendChild(btn);
   });
+  renderNotificationShell();
+  startNotificationRefresh();
   if (items.length > 0) loadPage(items[0].page);
 }
 
@@ -419,6 +425,182 @@ function openAccountSettings() {
   document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
   document.querySelector('.account-trigger')?.classList.add('active');
   loadPage('page-account');
+}
+
+function notificationIconPath() {
+  return 'M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22zm8-6.5V17H4v-1.5l2-2V9a6 6 0 0 1 4.5-5.82V2a1.5 1.5 0 0 1 3 0v1.18A6 6 0 0 1 18 9v4.5l2 2z';
+}
+
+function notificationModalRoot() {
+  let root = document.getElementById('gf-global-modal-root') || document.getElementById('gf-modal-root');
+  if (!root) {
+    root = document.createElement('div');
+    root.id = 'gf-global-modal-root';
+    document.body.appendChild(root);
+  }
+  return root;
+}
+
+function renderNotificationShell() {
+  const host = document.getElementById('sidebar-notifications');
+  if (!host) return;
+  if (!currentUser || !['owner', 'manager'].includes(currentUser.role)) {
+    host.innerHTML = '';
+    return;
+  }
+  const count = gfNotifications.length;
+  host.innerHTML = `
+    <button class="notification-trigger ${count ? 'has-alerts' : ''}" type="button" onclick="openNotifications()">
+      <span class="notification-trigger-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="${notificationIconPath()}"/></svg></span>
+      <span><b>Notifications</b><small>${count ? `${count} item${count === 1 ? '' : 's'} need attention` : 'No urgent items'}</small></span>
+      <em>${count}</em>
+    </button>`;
+}
+
+function notificationItem(title, body, page, tone = 'info', meta = '') {
+  return { title, body, page, tone, meta };
+}
+
+async function ownerNotifications() {
+  const [reports, requests] = await Promise.all([
+    API.reportList().catch(() => []),
+    API.fuelPriceRequests({ status: 'pending' }).catch(() => []),
+  ]);
+  const items = [];
+  const pendingReports = reports.filter(r => String(r.status || '').toLowerCase() === 'submitted');
+  if (pendingReports.length) {
+    items.push(notificationItem(
+      'Weekly reports need review',
+      `${pendingReports.length} submitted weekly report${pendingReports.length === 1 ? '' : 's'} from branches are waiting in Analytics & Reports.`,
+      'page-analytics',
+      'warn',
+      pendingReports[0]?.submitted_at ? `Latest: ${fmtDT(pendingReports[0].submitted_at)}` : ''
+    ));
+  }
+  if (requests.length) {
+    items.push(notificationItem(
+      'Fuel price requests are pending',
+      `${requests.length} cashier price request${requests.length === 1 ? '' : 's'} are waiting for branch manager review.`,
+      'page-fuel-prices',
+      'info',
+      'Monitor request flow and ceiling limits'
+    ));
+  }
+  return items;
+}
+
+async function managerNotifications() {
+  const [requests, shifts, weekly] = await Promise.all([
+    API.fuelPriceRequests({ status: 'pending' }).catch(() => []),
+    API.shiftsPending(currentUser.branch_id).catch(() => []),
+    API.weeklyReport({ branch_id: currentUser.branch_id }).catch(() => null),
+  ]);
+  const items = [];
+  if (requests.length) {
+    items.push(notificationItem(
+      'Cashier price requests need decision',
+      `${requests.length} fuel price request${requests.length === 1 ? '' : 's'} need approval or rejection with a manager note.`,
+      'page-fuel-prices',
+      'warn',
+      'Fuel Prices'
+    ));
+  }
+  if (shifts.length) {
+    items.push(notificationItem(
+      'Shift records need verification',
+      `${shifts.length} submitted cashier shift record${shifts.length === 1 ? '' : 's'} are pending review.`,
+      'page-verification',
+      'danger',
+      'Shift Verification'
+    ));
+  }
+  const dailyCount = safeNum(weekly?.daily_entries_count || weekly?.totals?.tx_count);
+  const weeklySales = safeNum(weekly?.totals?.total_sales);
+  if (dailyCount > 0) {
+    items.push(notificationItem(
+      'Weekly report is ready to submit',
+      `${dailyCount} daily record${dailyCount === 1 ? '' : 's'} are available for this week with ${fmt(weeklySales)} total sales.`,
+      'page-weekly',
+      'info',
+      `${weekly?.week_start || ''} - ${weekly?.week_end || ''}`.trim()
+    ));
+  }
+  return items;
+}
+
+async function refreshNotifications() {
+  if (!currentUser || !['owner', 'manager'].includes(currentUser.role)) {
+    gfNotifications = [];
+    renderNotificationShell();
+    return;
+  }
+  try {
+    gfNotifications = currentUser.role === 'owner'
+      ? await ownerNotifications()
+      : await managerNotifications();
+  } catch(e) {
+    gfNotifications = [];
+  }
+  renderNotificationShell();
+}
+
+function startNotificationRefresh() {
+  stopNotificationRefresh();
+  if (!currentUser || !['owner', 'manager'].includes(currentUser.role)) {
+    renderNotificationShell();
+    return;
+  }
+  refreshNotifications();
+  gfNotificationTimer = setInterval(refreshNotifications, 60000);
+}
+
+function stopNotificationRefresh() {
+  if (gfNotificationTimer) {
+    clearInterval(gfNotificationTimer);
+    gfNotificationTimer = null;
+  }
+}
+
+function openNotificationTarget(page) {
+  closeGfModal();
+  const navBtn = document.querySelector(`.nav-item[data-page="${page}"]`);
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  document.querySelector('.account-trigger')?.classList.remove('active');
+  if (navBtn) navBtn.classList.add('active');
+  loadPage(page);
+}
+
+function openNotifications() {
+  const root = notificationModalRoot();
+  const items = gfNotifications;
+  root.innerHTML = `
+    <div class="gf-modal-backdrop">
+      <div class="gf-modal notification-modal">
+        <button class="gf-modal-x" onclick="closeGfModal()">×</button>
+        <h2>Notifications</h2>
+        <p>${currentUser.role === 'owner' ? 'Network items that need owner attention.' : 'Branch items that need manager attention.'}</p>
+        <div class="notification-list">
+          ${items.length ? items.map((item, index) => `
+            <button class="notification-item ${gfEscape(item.tone)}" type="button" onclick="openNotificationTarget('${gfEscape(item.page)}')">
+              <span class="notification-dot"></span>
+              <span class="notification-copy">
+                <b>${gfEscape(item.title)}</b>
+                <small>${gfEscape(item.body)}</small>
+                ${item.meta ? `<em>${gfEscape(item.meta)}</em>` : ''}
+              </span>
+              <span class="notification-arrow">View</span>
+            </button>`).join('') : `
+            <div class="notification-empty">
+              <b>Nothing urgent right now</b>
+              <span>New report, price, and shift items will appear here automatically.</span>
+            </div>`}
+        </div>
+        <div class="gf-modal-actions">
+          <button class="btn-outline" onclick="refreshNotifications(); closeGfModal()">Refresh</button>
+          <button class="btn-green" onclick="closeGfModal()">Close</button>
+        </div>
+      </div>
+    </div>`;
 }
 
 async function ensurePageLoaded(pageId) {
@@ -860,6 +1042,7 @@ async function submitWeeklyReport() {
     if (legacyArea) legacyArea.style.display = 'none';
     if (legacySubmitted) legacySubmitted.style.display = 'flex';
     showToast(`Weekly report submitted to owner (${weeklyRangeLabel(range)}).`);
+    refreshNotifications();
   } catch(e) {
     showToast(e.message, 'error');
   } finally {
@@ -919,6 +1102,7 @@ async function verifyShift(id, status) {
   try {
     await API.shiftVerify(id, status);
     showToast(`Shift ${status.toLowerCase()}`, status === 'Flagged' ? 'warn' : 'success');
+    refreshNotifications();
     setTimeout(initVerification, 300);
   } catch(e) { showToast(e.message, 'error'); }
 }
@@ -2204,6 +2388,7 @@ async function reviewFuelPriceRequest(id, status) {
     await API.fuelReviewPrice(id, status, note || '');
     showToast(status === 'approved' ? 'Branch price approved.' : 'Price request rejected.');
     closeGfModal();
+    refreshNotifications();
     await initFuelPrices();
   } catch(e) {
     showToast(e.message, 'error');
@@ -3529,8 +3714,10 @@ function verifyModalHTML(r, txs, history) {
 }
 
 function closeGfModal() {
-  const root = document.getElementById('gf-modal-root') || document.getElementById('gf-global-modal-root');
-  if (root) root.innerHTML = '';
+  ['gf-modal-root', 'gf-global-modal-root'].forEach(id => {
+    const root = document.getElementById(id);
+    if (root) root.innerHTML = '';
+  });
 }
 
 async function confirmShiftVerify(id) {
