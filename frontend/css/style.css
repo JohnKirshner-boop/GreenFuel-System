@@ -59,8 +59,6 @@ body{font-family:'DM Sans',sans-serif;color:var(--text);background:var(--bg);min
 :root[data-theme="dark"] .btn-outline{color:var(--text);border-color:var(--border)}
 :root[data-theme="dark"] .badge-gray{background:var(--surface);color:var(--muted);border-color:var(--border)}
 :root[data-theme="dark"] .login-panel{background:rgba(16,29,22,.97);border-color:rgba(126,230,164,.16)}
-:root[data-theme="dark"] .role-option,
-:root[data-theme="dark"] .password-view-btn,
 :root[data-theme="dark"] .page-header-mark,
 :root[data-theme="dark"] .tab-btn.active,
 :root[data-theme="dark"] .forecast-summary-card,
@@ -168,12 +166,6 @@ body{font-family:'DM Sans',sans-serif;color:var(--text);background:var(--bg);min
 .login-logo-wrap svg{width:22px;height:22px;fill:currentColor}
 .login-title{font-size:25px;font-weight:700;color:var(--text);letter-spacing:0}
 .login-sub{font-size:14px;color:var(--muted);margin-top:6px}
-.role-switcher{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:1.35rem}
-.role-option{height:58px;border:1.5px solid var(--border);background:white;border-radius:8px;cursor:pointer;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;color:var(--muted);
-  font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;transition:all 0.15s}
-.role-option svg{width:17px;height:17px;fill:currentColor}
-.role-option:hover,.role-option.active{border-color:var(--green);background:var(--green-light);color:var(--green);box-shadow:0 0 0 3px rgba(26,122,60,0.08)}
 .field{margin-bottom:1rem}
 .field label{display:block;font-size:13px;font-weight:500;color:var(--muted);margin-bottom:6px}
 .field-label-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px}
@@ -182,13 +174,6 @@ body{font-family:'DM Sans',sans-serif;color:var(--text);background:var(--bg);min
   background:var(--surface);color:var(--text);font-size:14px;font-family:'DM Sans',sans-serif;transition:border-color 0.2s}
 .field input:focus,.login-select:focus{outline:none;border-color:var(--green);background:white}
 .password-input-wrap{position:relative}
-.password-input-wrap input{padding-right:72px}
-.password-view-btn{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:36px;height:31px;border:1px solid var(--border);border-radius:7px;background:#fff;color:var(--green);display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
-.password-view-btn svg{width:18px;height:18px;fill:currentColor}
-.password-view-btn .eye-closed{display:none}
-.password-view-btn.is-visible .eye-open{display:none}
-.password-view-btn.is-visible .eye-closed{display:block}
-.password-view-btn:hover{background:var(--green-light);border-color:#bfe3cd}
 .btn-primary{width:100%;padding:12px;background:var(--green);color:white;border:none;
   border-radius:var(--rad-sm);font-size:14px;font-weight:600;cursor:pointer;
   font-family:'DM Sans',sans-serif;transition:all 0.2s}

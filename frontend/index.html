@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
-<link rel="stylesheet" href="css/style.css?v=20260928-forgot-page-dark-fix"/>
+<link rel="stylesheet" href="css/style.css?v=20260929-login-no-role-buttons"/>
 </head>
 <body>
 
@@ -31,20 +31,6 @@
           <div class="login-title">Welcome back</div>
           <div class="login-sub">Sign in to access the centralized management system.</div>
         </div>
-        <div class="role-switcher" id="login-role-switcher">
-          <button class="role-option" onclick="quickLogin('owner')" type="button">
-            <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-            <span>Owner</span>
-          </button>
-          <button class="role-option active" onclick="quickLogin('manager')" type="button">
-            <svg viewBox="0 0 24 24"><path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z"/></svg>
-            <span>Manager</span>
-          </button>
-          <button class="role-option" onclick="quickLogin('cashier')" type="button">
-            <svg viewBox="0 0 24 24"><path d="M21 18v1c0 1.1-.9 2-2 2H5c-1.11 0-2-.9-2-2V5c0-1.1.89-2 2-2h14c1.1 0 2 .9 2 2v1H5v12h16zM7 15h6v-2H7v2zm0-4h10V9H7v2z"/></svg>
-            <span>Cashier</span>
-          </button>
-        </div>
         <div class="field" id="login-email-field">
           <label>Email</label>
           <input type="email" id="login-user" placeholder="e.g. manager1@greenfuel.local" autocomplete="email"/>
@@ -56,10 +42,6 @@
           </div>
           <div class="password-input-wrap">
             <input type="password" id="login-pass" placeholder="Enter password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"/>
-            <button type="button" class="password-view-btn" id="login-password-toggle" onclick="toggleLoginPassword()" aria-label="Show password">
-              <svg class="eye-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5c5.3 0 9.3 4.2 10.7 6.1.4.5.4 1.2 0 1.8C21.3 14.8 17.3 19 12 19S2.7 14.8 1.3 12.9a1.5 1.5 0 0 1 0-1.8C2.7 9.2 6.7 5 12 5zm0 2C7.7 7 4.4 10.2 3.1 12 4.4 13.8 7.7 17 12 17s7.6-3.2 8.9-5C19.6 10.2 16.3 7 12 7zm0 2.2a2.8 2.8 0 1 1 0 5.6 2.8 2.8 0 0 1 0-5.6z"/></svg>
-              <svg class="eye-closed" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.3 2 22 20.7 20.7 22l-3.2-3.2A12.2 12.2 0 0 1 12 20C6.7 20 2.7 15.8 1.3 13.9a1.5 1.5 0 0 1 0-1.8A18.6 18.6 0 0 1 5 8.3L2 5.3 3.3 2zm3.1 7.7A16 16 0 0 0 3.1 13C4.4 14.8 7.7 18 12 18c1.4 0 2.7-.3 3.9-.9l-2.1-2.1a3.2 3.2 0 0 1-4.1-4.1L6.4 9.7zM12 6c5.3 0 9.3 4.2 10.7 6.1.4.5.4 1.2 0 1.8-.4.5-1.2 1.4-2.3 2.3L19 14.8c.8-.7 1.4-1.3 1.9-1.8C19.6 11.2 16.3 8 12 8c-.8 0-1.6.1-2.4.3L8 6.8c1.2-.5 2.5-.8 4-.8z"/></svg>
-            </button>
           </div>
         </div>
         <button class="btn-primary" id="login-submit-btn" onclick="doLogin()">Sign In</button>
@@ -144,7 +126,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="js/api.js?v=20260929-theme-persist"></script>
-<script src="js/app.js?v=20260929-theme-persist"></script>
+<script src="js/app.js?v=20260929-login-no-role-buttons"></script>
 <script src="js/fuelsight-runtime.js?v=20260922-pos-fit2"></script>
 </body>
 </html>

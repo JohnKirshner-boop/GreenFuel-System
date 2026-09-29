@@ -3,7 +3,6 @@
 let currentUser = null;
 let selectedFuel = null;
 let allFuels = [];
-let currentLoginRole = 'manager';
 const charts = {};
 const destroyChart = k => { if (charts[k]) { try { charts[k].destroy(); } catch(e){} delete charts[k]; }};
 const loadedPages = new Set();
@@ -57,27 +56,9 @@ const loadingHTML = `<div class="loading"><span class="spinner"></span>Loadingâ€
 // ============================================================
 // AUTH
 // ============================================================
-function quickLogin(role = 'manager') {
-  document.getElementById('login-user').focus();
-  document.querySelectorAll('.role-option').forEach(btn => btn.classList.remove('active'));
-  currentLoginRole = role;
-  const roleIndex = currentLoginRole === 'owner' ? 0 : currentLoginRole === 'manager' ? 1 : 2;
-  document.querySelectorAll('.role-option')[roleIndex]?.classList.add('active');
-}
-
 function updateLoginBranchVisibility() {
   // Branch selection is account-based now; non-owner users enter the
   // branch assigned to their account automatically after login.
-}
-
-function toggleLoginPassword() {
-  const input = document.getElementById('login-pass');
-  const btn = document.getElementById('login-password-toggle');
-  if (!input || !btn) return;
-  const show = input.type === 'password';
-  input.type = show ? 'text' : 'password';
-  btn.classList.toggle('is-visible', show);
-  btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
 }
 
 async function doLogin() {
@@ -103,7 +84,7 @@ async function doLogin() {
 
 function setLoginEntryVisible(visible) {
   const display = visible ? '' : 'none';
-  ['login-role-switcher', 'login-email-field', 'login-password-field', 'login-submit-btn', 'forgot-open-btn'].forEach(id => {
+  ['login-email-field', 'login-password-field', 'login-submit-btn', 'forgot-open-btn'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = display;
   });
