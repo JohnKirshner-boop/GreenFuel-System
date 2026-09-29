@@ -130,36 +130,80 @@ function analyticsBranchRowsForRange(PDO $db, array $branches, string $start, st
     return $rows;
 }
 
+function analyticsBranchCondition(PDO $db, array $user, string $alias, ?string $requestedBranch, array &$params): string {
+    $column = $alias ? $alias.'.branch_id' : 'branch_id';
+    if (($user['role'] ?? '') === 'owner') {
+        if ($requestedBranch) {
+            $params[] = requireBranchAccess($db, $user, $requestedBranch);
+            return " AND {$column} = ?";
+        }
+        return '';
+    }
+    if ($requestedBranch) {
+        $params[] = requireBranchAccess($db, $user, $requestedBranch);
+        return " AND {$column} = ?";
+    }
+    $branchIds = assignedBranchIds($db, $user);
+    if (!$branchIds) return ' AND 1=0';
+    array_push($params, ...$branchIds);
+    return " AND {$column} IN (".implode(',', array_fill(0, count($branchIds), '?')).')';
+}
+
+function analyticsBranchTableCondition(PDO $db, array $user, ?string $requestedBranch, array &$params): string {
+    if (($user['role'] ?? '') === 'owner') {
+        if ($requestedBranch) {
+            $params[] = requireBranchAccess($db, $user, $requestedBranch);
+            return ' WHERE b.id = ?';
+        }
+        return '';
+    }
+    if ($requestedBranch) {
+        $params[] = requireBranchAccess($db, $user, $requestedBranch);
+        return ' WHERE b.id = ?';
+    }
+    $branchIds = assignedBranchIds($db, $user);
+    if (!$branchIds) return ' WHERE 1=0';
+    array_push($params, ...$branchIds);
+    return ' WHERE b.id IN ('.implode(',', array_fill(0, count($branchIds), '?')).')';
+}
+
 switch ($action) {
 
     // ---- OVERALL NETWORK SUMMARY ----
     case 'summary': {
-        $row = $db->query(
+        $params = [];
+        $branchCondition = analyticsBranchCondition($db, $user, 't', $_GET['branch_id'] ?? null, $params);
+        $stmt = $db->prepare(
             'SELECT COUNT(*) AS tx_count,
-                    SUM(total_amount) AS total_revenue,
-                    SUM(tax_amount) AS total_tax,
-                    SUM(liters) AS total_liters,
-                    AVG(total_amount) AS avg_tx
-             FROM transactions
-             WHERE status != \'void\''
-        )->fetch();
-        $today = $db->query(
+                    SUM(t.total_amount) AS total_revenue,
+                    SUM(t.tax_amount) AS total_tax,
+                    SUM(t.liters) AS total_liters,
+                    AVG(t.total_amount) AS avg_tx
+             FROM transactions t
+             WHERE t.status != \'void\''.$branchCondition
+        );
+        $stmt->execute($params);
+        $row = $stmt->fetch();
+
+        $todayParams = [];
+        $todayBranchCondition = analyticsBranchCondition($db, $user, 't', $_GET['branch_id'] ?? null, $todayParams);
+        $todayStmt = $db->prepare(
             'SELECT COUNT(*) AS tx_count,
-                    COALESCE(SUM(total_amount),0) AS revenue,
-                    COALESCE(SUM(tax_amount),0) AS tax,
-                    COALESCE(SUM(liters),0) AS liters
-             FROM transactions WHERE status != \'void\' AND DATE(timestamp)=CURDATE()'
-        )->fetch();
+                    COALESCE(SUM(t.total_amount),0) AS revenue,
+                    COALESCE(SUM(t.tax_amount),0) AS tax,
+                    COALESCE(SUM(t.liters),0) AS liters
+             FROM transactions t WHERE t.status != \'void\' AND DATE(t.timestamp)=CURDATE()'.$todayBranchCondition
+        );
+        $todayStmt->execute($todayParams);
+        $today = $todayStmt->fetch();
         jsonSuccess(['all_time' => $row, 'today' => $today]);
     }
 
     // ---- DAILY REVENUE PER BRANCH ----
     case 'daily': {
         $days = min((int)($_GET['days'] ?? 7), 90);
-        $bid  = $_GET['branch_id'] ?? null;
-        $extra = $bid ? ' AND t.branch_id = ?' : '';
         $params = [$days];
-        if ($bid) $params[] = $bid;
+        $extra = analyticsBranchCondition($db, $user, 't', $_GET['branch_id'] ?? null, $params);
         $stmt = $db->prepare(
             'SELECT DATE(t.timestamp) AS day,
                     t.branch_id,
@@ -180,7 +224,9 @@ switch ($action) {
 
     // ---- BRANCH RANKING ----
     case 'branch_ranking': {
-        $stmt = $db->query(
+        $params = [];
+        $branchWhere = analyticsBranchTableCondition($db, $user, $_GET['branch_id'] ?? null, $params);
+        $stmt = $db->prepare(
             'SELECT b.id, b.name, b.location,
                     COUNT(t.id) AS tx_count,
                     COALESCE(SUM(t.total_amount),0) AS revenue,
@@ -188,9 +234,11 @@ switch ($action) {
                     COALESCE(AVG(t.total_amount),0) AS avg_tx
              FROM branches b
              LEFT JOIN transactions t ON t.branch_id = b.id AND t.status != \'void\'
+             '.$branchWhere.'
              GROUP BY b.id
              ORDER BY revenue DESC'
         );
+        $stmt->execute($params);
         jsonSuccess($stmt->fetchAll());
     }
 
@@ -267,9 +315,8 @@ switch ($action) {
 
     // ---- FUEL BREAKDOWN ----
     case 'fuel_breakdown': {
-        $bid    = $_GET['branch_id'] ?? null;
-        $extra  = $bid ? ' AND t.branch_id = ?' : '';
-        $params = $bid ? [$bid] : [];
+        $params = [];
+        $extra  = analyticsBranchCondition($db, $user, 't', $_GET['branch_id'] ?? null, $params);
         $stmt   = $db->prepare(
             'SELECT f.id, f.name, f.color,
                     COUNT(t.id) AS tx_count,
@@ -489,19 +536,28 @@ switch ($action) {
 
     // ---- INSIGHTS (decision support) ----
     case 'insights': {
-        $ranking = $db->query(
+        $branchParams = [];
+        $branchWhere = analyticsBranchTableCondition($db, $user, $_GET['branch_id'] ?? null, $branchParams);
+        $rankingStmt = $db->prepare(
             'SELECT b.name, COALESCE(SUM(t.total_amount),0) AS revenue
              FROM branches b
              LEFT JOIN transactions t ON t.branch_id = b.id AND t.status != \'void\'
+             '.$branchWhere.'
              GROUP BY b.id ORDER BY revenue DESC'
-        )->fetchAll();
+        );
+        $rankingStmt->execute($branchParams);
+        $ranking = $rankingStmt->fetchAll();
 
-        $trend = $db->query(
-            'SELECT DATE(timestamp) AS day, SUM(liters) AS liters
-             FROM transactions
-             WHERE status != \'void\' AND timestamp >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-             GROUP BY DATE(timestamp) ORDER BY day'
-        )->fetchAll();
+        $trendParams = [];
+        $trendBranchCondition = analyticsBranchCondition($db, $user, 't', $_GET['branch_id'] ?? null, $trendParams);
+        $trendStmt = $db->prepare(
+            'SELECT DATE(t.timestamp) AS day, SUM(t.liters) AS liters
+             FROM transactions t
+             WHERE t.status != \'void\' AND t.timestamp >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)'.$trendBranchCondition.'
+             GROUP BY DATE(t.timestamp) ORDER BY day'
+        );
+        $trendStmt->execute($trendParams);
+        $trend = $trendStmt->fetchAll();
 
         $liters = array_column($trend, 'liters');
         $half   = intdiv(count($liters), 2);

@@ -3,22 +3,44 @@
 // BASE_URL points to your backend folder.
 
 const BASE_URL = '../backend/routes';
+let GREENFUEL_CSRF_TOKEN = null;
 
 async function apiFetch(route, params = {}, options = {}) {
   const url = new URL(`${BASE_URL}/${route}`, window.location.href);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  const method = (options.method || 'GET').toUpperCase();
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(options.headers || {}),
+  };
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(method) && GREENFUEL_CSRF_TOKEN) {
+    headers['X-CSRF-Token'] = GREENFUEL_CSRF_TOKEN;
+  }
 
   const res = await fetch(url.toString(), {
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
     ...options,
+    headers,
   });
 
-  const json = await res.json();
+  const text = await res.text();
+  let json;
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch (e) {
+    throw new Error('Server returned an invalid response. Please check the backend logs.');
+  }
+  const payload = Object.prototype.hasOwnProperty.call(json, 'data') ? json.data : json;
+  if (payload && typeof payload === 'object' && payload.csrf_token) {
+    GREENFUEL_CSRF_TOKEN = payload.csrf_token;
+  }
+  if (json && typeof json === 'object' && json.csrf_token) {
+    GREENFUEL_CSRF_TOKEN = json.csrf_token;
+  }
   if (!json.success && res.status !== 200) {
     throw new Error(json.error || 'Request failed');
   }
-  return Object.prototype.hasOwnProperty.call(json, 'data') ? json.data : json;
+  return payload;
 }
 
 // Shorthand helpers

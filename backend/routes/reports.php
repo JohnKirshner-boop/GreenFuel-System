@@ -161,7 +161,9 @@ function weeklyFromDailyEntries(PDO $db, ?string $bid, string $weekStart, string
 switch ($action) {
 
     case 'weekly': {
-        $bid = $user['role'] !== 'owner' ? $user['branch_id'] : ($_GET['branch_id'] ?? null);
+        $bid = $user['role'] === 'owner'
+            ? (!empty($_GET['branch_id']) ? requireBranchAccess($db, $user, $_GET['branch_id']) : null)
+            : activeBranchId($db, $user, $_GET['branch_id'] ?? ($user['branch_id'] ?? null));
         // Default: current week Mon–Sun
         $weekStart = date('Y-m-d', strtotime('monday this week'));
         $weekEnd   = date('Y-m-d', strtotime('sunday this week'));
@@ -235,8 +237,11 @@ switch ($action) {
 
     case 'submit': {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonError('POST required', 405);
+        requireCsrf();
         $b          = getBody();
-        $bid        = $b['branch_id']  ?? $user['branch_id'];
+        $bid        = $user['role'] === 'owner'
+            ? requireBranchAccess($db, $user, $b['branch_id'] ?? null)
+            : activeBranchId($db, $user, $b['branch_id'] ?? ($user['branch_id'] ?? null));
         $weekStart  = $b['week_start'] ?? date('Y-m-d', strtotime('monday this week'));
         $weekEnd    = $b['week_end']   ?? date('Y-m-d', strtotime('sunday this week'));
         [$weekStart, $weekEnd] = normalizeReportRange($weekStart, $weekEnd);
@@ -270,6 +275,11 @@ switch ($action) {
             $sales, $expenses,
             $liters, $user['id'],
         ]);
+        auditLog($db, $user, 'weekly_report_submit', 'weekly_report', $bid.'-'.$weekStart.'-'.$weekEnd, [
+            'branch_id' => $bid,
+            'week_start' => $weekStart,
+            'week_end' => $weekEnd,
+        ]);
 
         jsonSuccess(null, 'Weekly report submitted successfully.');
     }
@@ -280,7 +290,7 @@ switch ($action) {
         $params = [];
         if (!empty($_GET['branch_id'])) {
             $where[] = 'r.branch_id = ?';
-            $params[] = $_GET['branch_id'];
+            $params[] = requireBranchAccess($db, $user, $_GET['branch_id']);
         }
         if (!empty($_GET['week_start'])) {
             $where[] = 'r.week_end >= ?';

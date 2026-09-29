@@ -72,15 +72,13 @@ CREATE TABLE IF NOT EXISTS users (
   FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE SET NULL
 );
 
--- Passwords stored as plain text here for easy setup.
--- The PHP backend will accept plain text during dev.
--- Run update_passwords.php to hash them properly.
+-- Seed passwords are bcrypt hashes. Change these before production use.
 INSERT IGNORE INTO users (username, email, password, name, role, branch_id) VALUES
-  ('admin',    'owner@greenfuel.local',    'admin123', 'Admin Owner',    'owner',   NULL),
-  ('manager1', 'manager1@greenfuel.local', 'mgr123',   'Maria Santos',   'manager', 'b1'),
-  ('manager2', 'manager2@greenfuel.local', 'mgr456',   'Juan Dela Cruz', 'manager', 'b2'),
-  ('cashier1', 'cashier1@greenfuel.local', 'pos123',   'Ana Reyes',      'cashier', 'b1'),
-  ('cashier2', 'cashier2@greenfuel.local', 'pos456',   'Pedro Lim',      'cashier', 'b2');
+  ('admin',    'owner@greenfuel.local',    '$2y$10$RjinHCFdGltHkY7eD7N5B.GCL.99CMOpTuNaL2cBtg9f5ltsWeSAW', 'Admin Owner',    'owner',   NULL),
+  ('manager1', 'manager1@greenfuel.local', '$2y$10$LALI.FyFzi5rGp3m8YPaNu5fMorXeTk/CwnRXMgofM9NW.UGooldu', 'Maria Santos',   'manager', 'b1'),
+  ('manager2', 'manager2@greenfuel.local', '$2y$10$H7V5kuuG0vokv1KiHExebee7fXBaHv0DylugJ3ehM9fGWCkw83hpe', 'Juan Dela Cruz', 'manager', 'b2'),
+  ('cashier1', 'cashier1@greenfuel.local', '$2y$10$eehdACmnvw2yWuSmgiraX.pbS3OItBbPbcPZL0dseBaCsTyjJrc.W', 'Ana Reyes',      'cashier', 'b1'),
+  ('cashier2', 'cashier2@greenfuel.local', '$2y$10$UyjQ/MLoi.zoBDFra0PZDugo5H/0eZw0oERuWqOq4a6zozLvzXguW', 'Pedro Lim',      'cashier', 'b2');
 
 CREATE TABLE IF NOT EXISTS user_branches (
   user_id    INT         NOT NULL,
@@ -345,3 +343,22 @@ CREATE TABLE IF NOT EXISTS daily_entries (
 );
 
 CREATE INDEX IF NOT EXISTS idx_daily_entries_branch_date ON daily_entries(branch_id, entry_date);
+
+-- ------------------------------------------------------------
+-- AUDIT LOGS
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id           BIGINT       AUTO_INCREMENT PRIMARY KEY,
+  actor_id     INT          NULL,
+  actor_role   VARCHAR(30)  NULL,
+  action       VARCHAR(80)  NOT NULL,
+  entity_type  VARCHAR(80)  NULL,
+  entity_id    VARCHAR(120) NULL,
+  details_json JSON         NULL,
+  ip_address   VARCHAR(45)  NULL,
+  created_at   DATETIME     DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_audit_actor (actor_id),
+  KEY idx_audit_action (action),
+  KEY idx_audit_created (created_at),
+  FOREIGN KEY (actor_id) REFERENCES users(id) ON DELETE SET NULL
+);

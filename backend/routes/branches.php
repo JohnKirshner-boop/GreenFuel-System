@@ -55,18 +55,35 @@ ensureFuelPricingSupport($db);
 switch ($action) {
 
     case 'list': {
-        $rows = $db->query(
+        $branchIds = assignedBranchIds($db, $user);
+        $whereSql = '';
+        $params = [];
+        if (($user['role'] ?? '') !== 'owner') {
+            if (!$branchIds) jsonSuccess([]);
+            $whereSql = 'WHERE b.id IN ('.implode(',', array_fill(0, count($branchIds), '?')).')';
+            $params = $branchIds;
+        }
+        $stmt = $db->prepare(
             'SELECT b.*,
                     COUNT(t.id)                       AS tx_count,
                     COALESCE(SUM(t.total_amount), 0)  AS revenue,
                     COALESCE(SUM(t.liters), 0)        AS liters
              FROM branches b
              LEFT JOIN transactions t ON t.branch_id = b.id AND t.status != \'void\'
+             '.$whereSql.'
              GROUP BY b.id
              ORDER BY revenue DESC'
-        )->fetchAll();
+        );
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll();
 
-        $managerRows = $db->query(
+        $managerParams = [];
+        $managerFilter = '';
+        if (($user['role'] ?? '') !== 'owner') {
+            $managerFilter = ' AND ub.branch_id IN ('.implode(',', array_fill(0, count($branchIds), '?')).')';
+            $managerParams = $branchIds;
+        }
+        $managerStmt = $db->prepare(
             "SELECT ub.branch_id,
                     u.id,
                     u.name,
@@ -81,14 +98,17 @@ switch ($action) {
              FROM user_branches ub
              INNER JOIN users u ON u.id = ub.user_id
              WHERE u.role = 'manager'
+             ".$managerFilter."
              ORDER BY ub.is_primary DESC, u.name ASC"
-        )->fetchAll();
+        );
+        $managerStmt->execute($managerParams);
+        $managerRows = $managerStmt->fetchAll();
         $managersByBranch = [];
         foreach ($managerRows as $manager) {
             $managersByBranch[$manager['branch_id']][] = [
                 'id' => (int)$manager['id'],
                 'name' => $manager['name'],
-                'email' => $manager['email'],
+                'email' => ($user['role'] ?? '') === 'owner' ? $manager['email'] : null,
                 'last_seen_at' => $manager['last_seen_at'],
                 'presence_status' => $manager['presence_status'],
             ];
@@ -107,6 +127,7 @@ switch ($action) {
 
     case 'fuels': {
         $branchId = $_GET['branch_id'] ?? (($user['role'] === 'owner') ? null : ($user['branch_id'] ?? null));
+        if ($branchId) $branchId = requireBranchAccess($db, $user, $branchId);
         if ($branchId) {
             $stmt = $db->prepare(
                 'SELECT f.id, f.name, f.color,
@@ -132,6 +153,7 @@ switch ($action) {
     case 'update_price': {
         requireRole('owner');
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonError('POST required', 405);
+        requireCsrf();
         $b     = getBody();
         $id    = trim($b['id']    ?? '');
         $price = (float)($b['price'] ?? 0);
@@ -149,14 +171,16 @@ switch ($action) {
             $db->rollBack();
             throw $e;
         }
+        auditLog($db, $user, 'fuel_ceiling_update', 'fuel_type', $id, ['price' => $price]);
         jsonSuccess(null, 'Owner ceiling price updated.');
     }
 
     case 'request_price': {
         requireRole('cashier');
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonError('POST required', 405);
+        requireCsrf();
         $b = getBody();
-        $branchId = $user['branch_id'] ?? '';
+        $branchId = requireBranchAccess($db, $user, $user['branch_id'] ?? '');
         $fuelType = trim($b['fuel_type'] ?? '');
         $requestedPrice = (float)($b['requested_price'] ?? 0);
         $reason = trim($b['reason'] ?? '');
@@ -191,6 +215,7 @@ switch ($action) {
             substr($reason, 0, 1000),
             $user['id'],
         ]);
+        auditLog($db, $user, 'fuel_price_request', 'fuel_type', $fuelType, ['branch_id' => $branchId, 'requested_price' => $requestedPrice]);
         jsonSuccess(null, 'Price change request submitted.');
     }
 
@@ -198,8 +223,10 @@ switch ($action) {
         $where = [];
         $params = [];
         if ($user['role'] !== 'owner') {
-            $where[] = 'r.branch_id = ?';
-            $params[] = $user['branch_id'];
+            $branchIds = assignedBranchIds($db, $user);
+            if (!$branchIds) jsonSuccess([]);
+            $where[] = 'r.branch_id IN ('.implode(',', array_fill(0, count($branchIds), '?')).')';
+            array_push($params, ...$branchIds);
         } elseif (!empty($_GET['branch_id'])) {
             $where[] = 'r.branch_id = ?';
             $params[] = $_GET['branch_id'];
@@ -234,6 +261,7 @@ switch ($action) {
     case 'review_price': {
         requireRole('manager');
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonError('POST required', 405);
+        requireCsrf();
         $b = getBody();
         $id = (int)($b['request_id'] ?? 0);
         $status = trim($b['status'] ?? '');
@@ -249,7 +277,7 @@ switch ($action) {
         $request = $stmt->fetch();
         if (!$request) jsonError('Price request not found.', 404);
         if ($request['status'] !== 'pending') jsonError('This request has already been reviewed.');
-        if (($user['branch_id'] ?? '') !== $request['branch_id']) {
+        if (!canAccessBranch($db, $user, $request['branch_id'])) {
             jsonError('Managers can only review price requests for their assigned branch.', 403);
         }
         if ($status === 'approved') {
@@ -292,19 +320,27 @@ switch ($action) {
             $db->rollBack();
             throw $e;
         }
+        auditLog($db, $user, 'fuel_price_review', 'fuel_price_request', (string)$id, [
+            'status' => $status,
+            'branch_id' => $request['branch_id'],
+            'fuel_type' => $request['fuel_type'],
+        ]);
         jsonSuccess(null, $status === 'approved' ? 'Branch price approved.' : 'Price request rejected.');
     }
 
     case 'create': {
         requireRole('owner');
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonError('POST required', 405);
+        requireCsrf();
         $b        = getBody();
         $id       = trim($b['id']       ?? '');
         $name     = trim($b['name']     ?? '');
         $location = trim($b['location'] ?? '');
         if (!$id || !$name || !$location) jsonError('id, name and location required.');
+        if (!preg_match('/^[a-zA-Z0-9_-]{2,20}$/', $id)) jsonError('Branch ID must be 2-20 letters, numbers, dashes, or underscores.');
         try {
             $db->prepare('INSERT INTO branches (id,name,location) VALUES (?,?,?)')->execute([$id,$name,$location]);
+            auditLog($db, $user, 'branch_create', 'branch', $id, ['name' => $name, 'location' => $location]);
             jsonSuccess(['id'=>$id], 'Branch created.');
         } catch (PDOException $e) {
             jsonError('Branch ID already exists.');

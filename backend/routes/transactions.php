@@ -232,7 +232,9 @@ switch ($action) {
     }
 
     case 'list': {
-        $bid = ($user['role'] !== 'owner') ? $user['branch_id'] : ($_GET['branch_id'] ?? null);
+        $bid = ($user['role'] === 'owner')
+            ? (!empty($_GET['branch_id']) ? requireBranchAccess($db, $user, $_GET['branch_id']) : null)
+            : activeBranchId($db, $user, $_GET['branch_id'] ?? ($user['branch_id'] ?? null));
         $where = ['1=1']; $params = [];
         if ($bid)                  { $where[] = 't.branch_id = ?';      $params[] = $bid; }
         if (!empty($_GET['date'])) { $where[] = 'DATE(t.timestamp) = ?'; $params[] = $_GET['date']; }
@@ -264,7 +266,9 @@ switch ($action) {
     }
 
     case 'today': {
-        $bid    = ($user['role'] !== 'owner') ? $user['branch_id'] : ($_GET['branch_id'] ?? null);
+        $bid    = ($user['role'] === 'owner')
+            ? (!empty($_GET['branch_id']) ? requireBranchAccess($db, $user, $_GET['branch_id']) : null)
+            : activeBranchId($db, $user, $_GET['branch_id'] ?? ($user['branch_id'] ?? null));
         $params = [date('Y-m-d')];
         $extra  = '';
         if ($bid) { $extra = ' AND t.branch_id = ?'; $params[] = $bid; }
@@ -294,7 +298,9 @@ switch ($action) {
     }
 
     case 'recent': {
-        $bid    = ($user['role'] !== 'owner') ? $user['branch_id'] : ($_GET['branch_id'] ?? null);
+        $bid    = ($user['role'] === 'owner')
+            ? (!empty($_GET['branch_id']) ? requireBranchAccess($db, $user, $_GET['branch_id']) : null)
+            : activeBranchId($db, $user, $_GET['branch_id'] ?? ($user['branch_id'] ?? null));
         $limit  = min((int)($_GET['limit'] ?? 12), 50);
         $params = []; $where = '';
         if ($bid) { $where = 'WHERE t.branch_id = ?'; $params[] = $bid; }
@@ -316,9 +322,11 @@ switch ($action) {
     }
 
     case 'create': {
+        requireRole('cashier');
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonError('POST required', 405);
+        requireCsrf();
         $b         = getBody();
-        $branch_id = $b['branch_id'] ?? $user['branch_id'];
+        $branch_id = activeBranchId($db, $user, $b['branch_id'] ?? ($user['branch_id'] ?? null));
         $fuel_type = trim($b['fuel_type'] ?? '');
         $amountPaid= (float)($b['amount_paid'] ?? 0);
         $amountProvided = is_numeric($b['amount_paid'] ?? null) && $amountPaid > 0;
@@ -332,7 +340,6 @@ switch ($action) {
         $changeBreakdown = is_array($b['change_breakdown'] ?? null) ? $b['change_breakdown'] : [];
         $cashPayloadProvided = array_key_exists('cash_received', $b) || !empty($breakdown) || !empty($changeBreakdown);
 
-        if (!$branch_id)  jsonError('branch_id is required.');
         if (!$fuel_type)  jsonError('fuel_type is required.');
         if (($rawLiters === null || trim((string)$rawLiters) === '') && !$amountProvided) {
             jsonError('Liters or amount paid is required.');
@@ -340,8 +347,7 @@ switch ($action) {
         if ($liters <= 0 && !$amountProvided) jsonError('Liters must be greater than zero.');
         if ($amountPaid < 0) jsonError('Negative amount values are not allowed.');
         if ($taxRate < 0 || $taxRate > 100) jsonError('VAT rate must be between 0 and 100 percent.');
-        if ($user['role'] === 'cashier' && !activeShiftSessionId($db, $user, $branch_id))
-            jsonError('Start a shift before processing sales.');
+        if (!activeShiftSessionId($db, $user, $branch_id)) jsonError('Start a shift before processing sales.');
 
         // Fetch the approved branch price. If the branch has no approved override,
         // use the owner-managed official base price.
@@ -448,6 +454,11 @@ switch ($action) {
                 }
             }
             $db->commit();
+            auditLog($db, $user, 'transaction_create', 'transaction', $tx_id, [
+                'branch_id' => $branch_id,
+                'fuel_type' => $fuel_type,
+                'total_amount' => $total,
+            ]);
         } catch (Throwable $e) {
             if ($db->inTransaction()) $db->rollBack();
             throw $e;
@@ -470,6 +481,7 @@ switch ($action) {
 
     case 'void': {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonError('POST required', 405);
+        requireCsrf();
         $b      = getBody();
         $tx_id  = trim($b['tx_id'] ?? '');
         $reason = trim($b['reason'] ?? '');
@@ -480,7 +492,7 @@ switch ($action) {
         $stmt->execute([$tx_id]);
         $tx = $stmt->fetch();
         if (!$tx) jsonError('Transaction not found.', 404);
-        if ($user['role'] !== 'owner' && $tx['branch_id'] !== $user['branch_id']) jsonError('Access denied.', 403);
+        if (!canAccessBranch($db, $user, $tx['branch_id'])) jsonError('Access denied.', 403);
         if ($tx['status'] === 'void') jsonError('Transaction is already void.');
 
         $db->prepare(
@@ -492,19 +504,27 @@ switch ($action) {
             'INSERT INTO void_logs (transaction_id, reason, voided_by, voided_at)
              VALUES (?,?,?,NOW())'
         )->execute([$tx_id, $reason, $user['id']]);
+        auditLog($db, $user, 'transaction_void', 'transaction', $tx_id, ['reason' => substr($reason, 0, 500)]);
         jsonSuccess(null, 'Transaction voided.');
     }
 
     case 'verify': {
         requireRole('manager', 'owner');
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonError('POST required', 405);
+        requireCsrf();
         $b      = getBody();
         $tx_id  = trim($b['tx_id'] ?? '');
         $status = trim($b['status'] ?? '');
-        if (!$tx_id || !in_array($status, ['verified','flagged','recalibrated','void']))
+        if (!$tx_id || !in_array($status, ['verified'], true))
             jsonError('tx_id and valid status required.');
+        $check = $db->prepare('SELECT branch_id FROM transactions WHERE id=? LIMIT 1');
+        $check->execute([$tx_id]);
+        $branchId = $check->fetchColumn();
+        if (!$branchId) jsonError('Transaction not found.', 404);
+        if (!canAccessBranch($db, $user, (string)$branchId)) jsonError('Access denied.', 403);
         $stmt = $db->prepare('UPDATE transactions SET status=? WHERE id=?');
         $stmt->execute([$status, $tx_id]);
+        auditLog($db, $user, 'transaction_verify', 'transaction', $tx_id, ['status' => $status]);
         jsonSuccess(null, 'Transaction '.$status.'.');
     }
 

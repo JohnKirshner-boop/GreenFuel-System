@@ -40,6 +40,7 @@ switch ($action) {
     case 'update': {
         requireRole('owner');
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonError('POST required', 405);
+        requireCsrf();
         $b = getBody();
         $key = trim($b['setting_key'] ?? '');
         $value = trim((string)($b['setting_value'] ?? ''));
@@ -53,6 +54,7 @@ switch ($action) {
              WHERE setting_key=?'
         );
         $stmt->execute([(string)$rate, $key]);
+        auditLog($db, $user, 'setting_update', 'system_setting', $key, ['value' => $rate]);
         jsonSuccess(['pos_vat_rate' => $rate], 'Setting updated.');
     }
 

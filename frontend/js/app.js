@@ -57,11 +57,10 @@ const loadingHTML = `<div class="loading"><span class="spinner"></span>Loadingâ€
 // ============================================================
 // AUTH
 // ============================================================
-function quickLogin(u, p, role = null) {
-  document.getElementById('login-user').value = u;
-  document.getElementById('login-pass').value = p;
+function quickLogin(role = 'manager') {
+  document.getElementById('login-user').focus();
   document.querySelectorAll('.role-option').forEach(btn => btn.classList.remove('active'));
-  currentLoginRole = role || (u.startsWith('admin') ? 'owner' : u.startsWith('manager') ? 'manager' : 'cashier');
+  currentLoginRole = role;
   const roleIndex = currentLoginRole === 'owner' ? 0 : currentLoginRole === 'manager' ? 1 : 2;
   document.querySelectorAll('.role-option')[roleIndex]?.classList.add('active');
 }
@@ -243,9 +242,9 @@ async function submitTokenPasswordReset() {
   const err = document.getElementById('login-err');
   if (err) err.style.display = 'none';
 
-  if (password.length < 6) {
+  if (password.length < 8) {
     if (err) {
-      err.textContent = 'New password must be at least 6 characters.';
+      err.textContent = 'New password must be at least 8 characters.';
       err.style.display = 'block';
     }
     return;
@@ -511,6 +510,8 @@ function initAccountSettings() {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
+  const passwordCard = document.querySelector('.account-side-stack .card:last-child');
+  if (passwordCard) passwordCard.style.display = currentUser.role === 'owner' ? 'none' : '';
   const photoInput = document.getElementById('account-photo-input');
   if (photoInput) photoInput.value = '';
   renderAccountAvatarPreview();
@@ -607,7 +608,7 @@ async function changeAccountPassword() {
   const next = document.getElementById('account-new-password')?.value || '';
   const confirmNext = document.getElementById('account-confirm-password')?.value || '';
   if (!current || !next || !confirmNext) { showToast('Complete all password fields.', 'error'); return; }
-  if (next.length < 6) { showToast('New password must be at least 6 characters.', 'error'); return; }
+  if (next.length < 8) { showToast('New password must be at least 8 characters.', 'error'); return; }
   if (next !== confirmNext) { showToast('New passwords do not match.', 'error'); return; }
   const btn = document.querySelector('.account-side-stack .card:last-child .account-save-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Updating...'; }

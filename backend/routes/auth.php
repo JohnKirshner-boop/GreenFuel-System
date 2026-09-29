@@ -23,6 +23,11 @@ function authValidProfileImage(?string $image): ?string {
     if (!preg_match('/^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+\/=]+$/', $image)) {
         jsonError('Upload a valid PNG, JPG, WEBP, or GIF profile picture.');
     }
+    [$meta, $encoded] = explode(',', $image, 2);
+    $decoded = base64_decode($encoded, true);
+    if ($decoded === false || strlen($decoded) > 1100000) {
+        jsonError('Profile picture must be a valid image file under 1 MB.');
+    }
     return $image;
 }
 
@@ -77,28 +82,31 @@ switch ($action) {
 
     case 'login':
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonError('POST required', 405);
+        rateLimit('login', 8, 300);
         $b        = getBody();
-        $email    = strtolower(trim($b['email'] ?? ($b['username'] ?? '')));
+        $email    = strtolower(trim($b['email'] ?? ''));
         $password = trim($b['password']  ?? '');
         if (!$email || !$password) jsonError('Email and password are required.');
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) jsonError('Enter a valid email address.');
 
         $stmt = $db->prepare(
             'SELECT u.*, b.name AS branch_name, b.location AS branch_location
              FROM users u
              LEFT JOIN branches b ON b.id = u.branch_id
-             WHERE u.email = ? OR u.username = ?
+             WHERE u.email = ?
              LIMIT 1'
         );
-        $stmt->execute([$email, $email]);
+        $stmt->execute([$email]);
         $user = $stmt->fetch();
 
-        // Accept both bcrypt hash and plain text (dev convenience)
-        $ok = $user && (
-            password_verify($password, $user['password']) ||
-            $user['password'] === $password
-        );
+        $ok = $user && storedPasswordIsHash((string)$user['password']) && password_verify($password, $user['password']);
+        if ($user && !storedPasswordIsHash((string)$user['password'])) {
+            jsonError('This account still uses an old insecure password. Ask the administrator to run the password migration or use forgot password.', 403);
+        }
 
         if (!$ok) jsonError('Invalid email or password.', 401);
+        unset($_SESSION['_rate_limits']['login']);
+        session_regenerate_id(true);
 
         if ($user['role'] !== 'owner') {
             $assignedBranches = $user['role'] === 'manager'
@@ -138,10 +146,13 @@ switch ($action) {
             'theme_preference' => authTheme($user['theme_preference'] ?? 'light'),
             'assigned_branches' => $user['role'] === 'manager' ? gfAssignedBranchIds($db, (int)$user['id']) : [],
         ];
+        $_SESSION['user']['csrf_token'] = csrfToken();
+        auditLog($db, $_SESSION['user'], 'login', 'user', (string)$user['id']);
         jsonSuccess($_SESSION['user'], 'Login successful.');
 
     case 'request_password_reset':
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonError('POST required', 405);
+        rateLimit('password_reset_request', 4, 900);
         $b = getBody();
         $email = strtolower(trim($b['email'] ?? ''));
 
@@ -185,12 +196,13 @@ switch ($action) {
 
     case 'reset_password':
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonError('POST required', 405);
+        rateLimit('password_reset_submit', 6, 900);
         $b = getBody();
         $token = trim((string)($b['token'] ?? ''));
         $newPassword = (string)($b['password'] ?? '');
 
         if (!$token || strlen($token) < 32) jsonError('Reset link is invalid or expired.');
-        if (strlen($newPassword) < 6) jsonError('New password must be at least 6 characters.');
+        if (!passwordMeetsPolicy($newPassword)) jsonError('New password must be at least 8 characters.');
 
         $stmt = $db->prepare(
             'SELECT pr.id AS reset_id, u.id AS user_id, u.role
@@ -208,6 +220,7 @@ switch ($action) {
                ->execute([password_hash($newPassword, PASSWORD_DEFAULT), (int)$reset['user_id']]);
             $db->prepare('UPDATE password_resets SET used_at=NOW() WHERE id=?')
                ->execute([(int)$reset['reset_id']]);
+            auditLog($db, ['id' => (int)$reset['user_id'], 'role' => $reset['role']], 'password_reset', 'user', (string)$reset['user_id']);
             $db->commit();
         } catch (Throwable $e) {
             if ($db->inTransaction()) $db->rollBack();
@@ -218,8 +231,9 @@ switch ($action) {
     case 'update_profile':
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonError('POST required', 405);
         $u = requireAuth();
+        requireCsrf();
         $b = getBody();
-        $name = trim($b['name'] ?? $u['name'] ?? '');
+        $name = substr(trim($b['name'] ?? $u['name'] ?? ''), 0, 120);
         $theme = authTheme(trim($b['theme_preference'] ?? $u['theme_preference'] ?? 'light'));
         $profileImage = array_key_exists('profile_image', $b)
             ? authValidProfileImage($b['profile_image'])
@@ -233,11 +247,14 @@ switch ($action) {
         $_SESSION['user']['name'] = $name;
         $_SESSION['user']['profile_image'] = $profileImage;
         $_SESSION['user']['theme_preference'] = $theme;
+        $_SESSION['user']['csrf_token'] = csrfToken();
+        auditLog($db, $u, 'profile_update', 'user', (string)$u['id']);
         jsonSuccess($_SESSION['user'], 'Account settings updated.');
 
     case 'update_theme':
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonError('POST required', 405);
         $u = requireAuth();
+        requireCsrf();
         $b = getBody();
         $theme = authTheme(trim($b['theme_preference'] ?? 'light'));
 
@@ -245,28 +262,36 @@ switch ($action) {
         $stmt->execute([$theme, $u['id']]);
 
         $_SESSION['user']['theme_preference'] = $theme;
+        $_SESSION['user']['csrf_token'] = csrfToken();
         jsonSuccess($_SESSION['user'], 'Display mode updated.');
 
     case 'change_password':
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonError('POST required', 405);
         $u = requireAuth();
+        requireCsrf();
+        if (($u['role'] ?? '') === 'owner') jsonError('Owner password changes are handled through password reset only.', 403);
         $b = getBody();
         $currentPassword = (string)($b['current_password'] ?? '');
         $newPassword = (string)($b['new_password'] ?? '');
         if (!$currentPassword || !$newPassword) jsonError('Current and new password are required.');
-        if (strlen($newPassword) < 6) jsonError('New password must be at least 6 characters.');
+        if (!passwordMeetsPolicy($newPassword)) jsonError('New password must be at least 8 characters.');
 
         $stmt = $db->prepare('SELECT password FROM users WHERE id=? LIMIT 1');
         $stmt->execute([$u['id']]);
         $stored = (string)($stmt->fetchColumn() ?: '');
-        $ok = password_verify($currentPassword, $stored) || hash_equals($stored, $currentPassword);
+        if (!storedPasswordIsHash($stored)) {
+            jsonError('This account still uses an old insecure password. Use forgot password to set a new one.', 403);
+        }
+        $ok = password_verify($currentPassword, $stored);
         if (!$ok) jsonError('Current password is incorrect.', 403);
 
         $update = $db->prepare('UPDATE users SET password=? WHERE id=?');
         $update->execute([password_hash($newPassword, PASSWORD_DEFAULT), $u['id']]);
+        auditLog($db, $u, 'password_change', 'user', (string)$u['id']);
         jsonSuccess(null, 'Password changed successfully.');
 
     case 'logout':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') requireCsrf();
         $u = currentUser();
         if ($u) {
             try {
@@ -291,8 +316,10 @@ switch ($action) {
             $_SESSION['user']['role'] = $fresh['role'];
             $_SESSION['user']['profile_image'] = $fresh['profile_image'] ?? null;
             $_SESSION['user']['theme_preference'] = authTheme($fresh['theme_preference'] ?? 'light');
+            $_SESSION['user']['csrf_token'] = csrfToken();
             $u = $_SESSION['user'];
         }
+        $u['csrf_token'] = csrfToken();
         jsonSuccess($u);
 
     default:

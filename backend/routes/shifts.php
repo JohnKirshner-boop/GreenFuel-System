@@ -131,13 +131,14 @@ ensureShiftSupport($db);
 switch ($action) {
 
     case 'current': {
-        requireRole('cashier', 'manager', 'owner');
+        requireRole('cashier');
         jsonSuccess(activeSession($db, $user));
     }
 
     case 'start': {
-        requireRole('cashier', 'manager', 'owner');
+        requireRole('cashier');
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonError('POST required', 405);
+        requireCsrf();
         $bid = $user['branch_id'];
         if (!$bid) jsonError('Branch is required to start a shift.');
         $open = activeSession($db, $user);
@@ -153,8 +154,9 @@ switch ($action) {
     }
 
     case 'end': {
-        requireRole('cashier', 'manager', 'owner');
+        requireRole('cashier');
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonError('POST required', 405);
+        requireCsrf();
         $session = activeSession($db, $user);
         if (!$session) jsonError('No open shift to end.');
         $body = getBody();
@@ -247,6 +249,10 @@ switch ($action) {
                 $cashierNote ?: null,
             ]);
             $db->commit();
+            auditLog($db, $user, 'shift_end', 'shift_session', (string)$session['id'], [
+                'cash_total' => round($cashTotal, 2),
+                'branch_id' => $session['branch_id'],
+            ]);
         } catch (Throwable $e) {
             if ($db->inTransaction()) $db->rollBack();
             throw $e;
@@ -261,9 +267,19 @@ switch ($action) {
 
     case 'pending': {
         requireRole('manager', 'owner');
-        $bid   = $user['role'] !== 'owner' ? $user['branch_id'] : ($_GET['branch_id'] ?? null);
-        $extra = $bid ? ' AND s.branch_id = ?' : '';
-        $params= $bid ? [$bid] : [];
+        $params= [];
+        $extra = '';
+        if ($user['role'] === 'owner') {
+            if (!empty($_GET['branch_id'])) {
+                $extra = ' AND s.branch_id = ?';
+                $params[] = requireBranchAccess($db, $user, $_GET['branch_id']);
+            }
+        } else {
+            $branchIds = assignedBranchIds($db, $user);
+            if (!$branchIds) jsonSuccess([]);
+            $extra = ' AND s.branch_id IN ('.implode(',', array_fill(0, count($branchIds), '?')).')';
+            $params = $branchIds;
+        }
         $stmt  = $db->prepare(
             'SELECT s.*, b.name AS branch_name, u.name AS cashier_name
              FROM shift_records s
@@ -278,9 +294,19 @@ switch ($action) {
 
     case 'history': {
         requireRole('manager', 'owner');
-        $bid   = $user['role'] !== 'owner' ? $user['branch_id'] : ($_GET['branch_id'] ?? null);
-        $extra = $bid ? ' AND s.branch_id = ?' : '';
-        $params= $bid ? [$bid] : [];
+        $params= [];
+        $extra = '';
+        if ($user['role'] === 'owner') {
+            if (!empty($_GET['branch_id'])) {
+                $extra = ' AND s.branch_id = ?';
+                $params[] = requireBranchAccess($db, $user, $_GET['branch_id']);
+            }
+        } else {
+            $branchIds = assignedBranchIds($db, $user);
+            if (!$branchIds) jsonSuccess([]);
+            $extra = ' AND s.branch_id IN ('.implode(',', array_fill(0, count($branchIds), '?')).')';
+            $params = $branchIds;
+        }
         $stmt  = $db->prepare(
             'SELECT s.*, b.name AS branch_name, u.name AS cashier_name,
                     v.name AS verifier_name
@@ -298,27 +324,35 @@ switch ($action) {
     case 'verify': {
         requireRole('manager', 'owner');
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonError('POST required', 405);
+        requireCsrf();
         $b        = getBody();
         $shift_id = trim($b['shift_id'] ?? '');
         $status   = trim($b['status']   ?? '');
         $remarks  = trim($b['remarks']  ?? '');
-        if (!$shift_id || !in_array($status, ['Verified','Recalibrated','Flagged']))
+        if (!$shift_id || !in_array($status, ['Verified'], true))
             jsonError('shift_id and valid status required.');
+        $check = $db->prepare('SELECT branch_id FROM shift_records WHERE id=? LIMIT 1');
+        $check->execute([$shift_id]);
+        $branchId = $check->fetchColumn();
+        if (!$branchId) jsonError('Shift record not found.', 404);
+        if (!canAccessBranch($db, $user, (string)$branchId)) jsonError('Access denied.', 403);
         $stmt = $db->prepare(
             'UPDATE shift_records
              SET status=?, remarks=?, verified_by=?, verified_at=NOW()
              WHERE id=?'
         );
         $stmt->execute([$status, $remarks ?: null, $user['id'], $shift_id]);
+        auditLog($db, $user, 'shift_verify', 'shift_record', $shift_id, ['status' => $status]);
         jsonSuccess(null, 'Shift '.$status.'.');
     }
 
     // Auto-create today's pending shifts (called by frontend on POS close)
     case 'open': {
-        requireRole('cashier', 'manager', 'owner');
+        requireRole('cashier');
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonError('POST required', 405);
+        requireCsrf();
         $b      = getBody();
-        $bid    = $b['branch_id'] ?? $user['branch_id'];
+        $bid    = activeBranchId($db, $user, $b['branch_id'] ?? ($user['branch_id'] ?? null));
         $shift  = $b['shift'] ?? legacyShiftName(date('Y-m-d H:i:s'));
         $today  = date('Y-m-d');
         $sid    = 'SHIFT-'.$today.'-'.strtoupper(substr($shift,0,2)).'-'.$bid;

@@ -248,6 +248,54 @@ function syncDailyEntryInventoryStock(PDO $db, string $branchId, array $payload,
     }
 }
 
+function dailyPayloadNumber(array $payload, string $key): float {
+    return isset($payload[$key]) && is_numeric($payload[$key]) ? (float)$payload[$key] : 0.0;
+}
+
+function dailyExpenseTotal(array $payload): float {
+    $total = 0.0;
+    for ($i = 0; $i < 8; $i++) {
+        $total += dailyPayloadNumber($payload, "expense__{$i}__amount");
+    }
+    return round($total, 2);
+}
+
+function dailyPumpSalesTotal(array $payload): float {
+    $total = 0.0;
+    for ($pump = 1; $pump <= 4; $pump++) {
+        $total += dailyPayloadNumber($payload, "digital__pump{$pump}__amount");
+    }
+    return round($total, 2);
+}
+
+function dailyActualCashFromShiftCounts(PDO $db, string $branchId, string $entryDate): float {
+    $stmt = $db->prepare(
+        "SELECT COALESCE(SUM(cb.amount),0)
+         FROM shift_cash_breakdown cb
+         INNER JOIN shift_sessions s ON s.id = cb.shift_session_id
+         WHERE s.branch_id = ?
+           AND DATE(COALESCE(s.end_time, s.start_time)) = ?
+           AND s.status != 'open'"
+    );
+    $stmt->execute([$branchId, $entryDate]);
+    return round((float)$stmt->fetchColumn(), 2);
+}
+
+function dailyCleanPayload(array $payload): array {
+    $clean = [];
+    foreach ($payload as $key => $value) {
+        $key = substr((string)$key, 0, 120);
+        if (is_string($value)) {
+            $clean[$key] = substr(trim($value), 0, 1000);
+        } elseif (is_numeric($value)) {
+            $clean[$key] = round((float)$value, 4);
+        } elseif ($value === null) {
+            $clean[$key] = null;
+        }
+    }
+    return $clean;
+}
+
 ensureDailyEntriesTable($db);
 ensureDailyCashSupport($db);
 ensureDailyInventoryForecastSupport($db);
@@ -255,8 +303,9 @@ ensureDailyInventoryForecastSupport($db);
 switch ($action) {
 
     case 'cash_summary': {
-        $bid = $user['role'] !== 'owner' ? $user['branch_id'] : ($_GET['branch_id'] ?? null);
-        if (!$bid) jsonError('branch_id is required.');
+        $bid = $user['role'] === 'owner'
+            ? requireBranchAccess($db, $user, $_GET['branch_id'] ?? null)
+            : activeBranchId($db, $user, $_GET['branch_id'] ?? ($user['branch_id'] ?? null));
         $date = $_GET['date'] ?? date('Y-m-d');
 
         $stmt = $db->prepare(
@@ -345,12 +394,18 @@ switch ($action) {
     }
 
     case 'list': {
-        $bid = $user['role'] !== 'owner' ? $user['branch_id'] : ($_GET['branch_id'] ?? null);
         $params = [];
         $where = [];
-        if ($bid) {
-            $where[] = 'd.branch_id = ?';
-            $params[] = $bid;
+        if ($user['role'] === 'owner') {
+            if (!empty($_GET['branch_id'])) {
+                $where[] = 'd.branch_id = ?';
+                $params[] = requireBranchAccess($db, $user, $_GET['branch_id']);
+            }
+        } else {
+            $branchIds = assignedBranchIds($db, $user);
+            if (!$branchIds) jsonSuccess([]);
+            $where[] = 'd.branch_id IN ('.implode(',', array_fill(0, count($branchIds), '?')).')';
+            array_push($params, ...$branchIds);
         }
         if (!empty($_GET['date'])) {
             $where[] = 'd.entry_date = ?';
@@ -387,14 +442,23 @@ switch ($action) {
     case 'save': {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonError('POST required', 405);
         if ($user['role'] !== 'manager') jsonError('Only managers can submit daily entries.', 403);
+        requireCsrf();
         $b = getBody();
-        $bid = $user['branch_id'];
+        $bid = activeBranchId($db, $user, $b['branch_id'] ?? ($user['branch_id'] ?? null));
         $entryDate = trim($b['entry_date'] ?? '');
         $shift = trim($b['shift'] ?? '');
         if (!$entryDate || !$shift) jsonError('Entry date and shift are required.');
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $entryDate)) jsonError('Invalid entry date.');
 
         $payload = $b['payload'] ?? [];
         if (!is_array($payload)) $payload = [];
+        $payload = dailyCleanPayload($payload);
+
+        $totalCashExpected = dailyPumpSalesTotal($payload);
+        $totalExpenses = dailyExpenseTotal($payload);
+        $actualCashRemitted = dailyActualCashFromShiftCounts($db, $bid, $entryDate);
+        $cashPayment = $actualCashRemitted;
+        $overShort = round($actualCashRemitted - ($totalCashExpected - $totalExpenses), 2);
 
         $entryId = (int)($b['id'] ?? $b['entry_id'] ?? 0);
         $values = [
@@ -403,11 +467,11 @@ switch ($action) {
             $b['time_in'] ?: null,
             $b['time_out'] ?: null,
             trim($b['duty_personnel'] ?? '') ?: null,
-            (float)($b['total_cash_expected'] ?? 0),
-            (float)($b['total_expenses'] ?? 0),
-            (float)($b['actual_cash_remitted'] ?? 0),
-            (float)($b['cash_payment'] ?? 0),
-            (float)($b['over_short'] ?? 0),
+            $totalCashExpected,
+            $totalExpenses,
+            $actualCashRemitted,
+            $cashPayment,
+            $overShort,
             json_encode($payload, JSON_UNESCAPED_UNICODE),
             $user['id'],
         ];
@@ -417,7 +481,9 @@ switch ($action) {
             $check->execute([$entryId]);
             $existing = $check->fetch();
             if (!$existing) jsonError('Daily entry not found.', 404);
-            if ($existing['branch_id'] !== $bid) jsonError('Access denied for this daily entry.', 403);
+            if (!canAccessBranch($db, $user, $existing['branch_id']) || $existing['branch_id'] !== $bid) {
+                jsonError('Access denied for this daily entry.', 403);
+            }
 
             $stmt = $db->prepare(
                 "UPDATE daily_entries
@@ -429,6 +495,7 @@ switch ($action) {
             );
             $stmt->execute([...$values, $entryId]);
             syncDailyEntryInventoryStock($db, $bid, $payload, (int)$user['id'], $entryId);
+            auditLog($db, $user, 'daily_entry_update', 'daily_entry', (string)$entryId, ['branch_id' => $bid, 'entry_date' => $entryDate]);
             jsonSuccess(['id' => $entryId], 'Daily entry updated.');
         }
 
@@ -446,6 +513,7 @@ switch ($action) {
 
         $newId = (int)$db->lastInsertId();
         syncDailyEntryInventoryStock($db, $bid, $payload, (int)$user['id'], $newId);
+        auditLog($db, $user, 'daily_entry_submit', 'daily_entry', (string)$newId, ['branch_id' => $bid, 'entry_date' => $entryDate]);
 
         jsonSuccess(['id' => $newId], 'Daily entry submitted.');
     }

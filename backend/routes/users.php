@@ -93,6 +93,7 @@ switch ($action) {
 
     case 'save': {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonError('POST required', 405);
+        requireCsrf();
         $b = getBody();
         $id = (int)($b['id'] ?? 0);
         $name = trim($b['name'] ?? '');
@@ -163,6 +164,7 @@ switch ($action) {
 
             $canChangePassword = $existing['role'] !== 'owner' && $role !== 'owner';
             if ($password !== '' && $canChangePassword) {
+                if (!passwordMeetsPolicy($password)) jsonError('Password must be at least 8 characters.');
                 $stmt = $db->prepare(
                     'UPDATE users SET username=?, email=?, password=?, name=?, role=?, branch_id=? WHERE id=?'
                 );
@@ -174,11 +176,13 @@ switch ($action) {
                 $stmt->execute([$username, $email, $name, $role, $branchId, $id]);
             }
             gfSyncUserBranches($db, $id, $branchIds, $branchId);
+            auditLog($db, $user, 'user_update', 'user', (string)$id, ['role' => $role, 'branch_ids' => $branchIds]);
             jsonSuccess(['id' => $id], 'User assignment updated.');
         }
 
         if ($role === 'owner') jsonError('Owner accounts are managed outside this screen.');
         if ($password === '') jsonError('Password is required for a new user.');
+        if (!passwordMeetsPolicy($password)) jsonError('Password must be at least 8 characters.');
         $stmt = $db->prepare(
             'INSERT INTO users (username, email, password, name, role, branch_id)
              VALUES (?,?,?,?,?,?)'
@@ -191,6 +195,7 @@ switch ($action) {
         }
         $newId = (int)$db->lastInsertId();
         gfSyncUserBranches($db, $newId, $branchIds, $branchId);
+        auditLog($db, $user, 'user_create', 'user', (string)$newId, ['role' => $role, 'branch_ids' => $branchIds]);
         jsonSuccess(['id' => $newId], 'User assignment created.');
     }
 

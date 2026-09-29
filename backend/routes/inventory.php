@@ -132,9 +132,7 @@ function ensureInventorySupport(PDO $db): void {
 }
 
 function allowedBranch(array $user, ?string $branch): string {
-    $bid = $user['role'] === 'owner' ? ($branch ?: '') : ($user['branch_id'] ?? '');
-    if (!$bid) jsonError('branch_id is required.');
-    return $bid;
+    return activeBranchId(getDB(), $user, $branch ?: ($user['branch_id'] ?? null));
 }
 
 function logMovement(PDO $db, string $branch, string $fuel, string $type, float $delta, float $before, float $after, ?string $refType, ?string $refId, ?int $uid, string $notes = ''): void {
@@ -211,6 +209,7 @@ switch ($action) {
 
     case 'measure': {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonError('POST required', 405);
+        requireCsrf();
         if (!in_array($user['role'], ['cashier','manager','owner'])) jsonError('Access denied.', 403);
         $b = getBody();
         $branch = allowedBranch($user, $b['branch_id'] ?? null);
@@ -243,16 +242,19 @@ switch ($action) {
             logMovement($db, $branch, $fuel, 'measurement_set', $delta, $before, $after, 'measurement', null, (int)$user['id'], 'Tank measurement sync');
             upsertAlert($db, $branch, $fuel, $after, (int)$user['id']);
             $db->commit();
+            auditLog($db, $user, 'inventory_measure', 'fuel_inventory', $branch.'-'.$fuel, ['measurement_cm' => $cm, 'estimated_liters' => $after]);
             jsonSuccess(['fuel_type' => $fuel, 'measurement_cm' => $cm, 'estimated_liters' => $after], 'Measurement saved.');
         } catch (Throwable $e) {
             if ($db->inTransaction()) $db->rollBack();
-            jsonError('Could not save measurement: '.$e->getMessage(), 500);
+            error_log('GreenFuel inventory measure failed: '.$e->getMessage());
+            jsonError('Could not save measurement.', 500);
         }
     }
 
     case 'refill': {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonError('POST required', 405);
         requireRole('manager', 'owner');
+        requireCsrf();
         $b = getBody();
         $branch = allowedBranch($user, $b['branch_id'] ?? null);
         $fuel = trim($b['fuel_type'] ?? '');
@@ -278,10 +280,12 @@ switch ($action) {
             logMovement($db, $branch, $fuel, 'refill_addition', $added, $before, $after, 'refill', null, (int)$user['id'], $notes);
             upsertAlert($db, $branch, $fuel, $after, (int)$user['id']);
             $db->commit();
+            auditLog($db, $user, 'inventory_refill', 'fuel_inventory', $branch.'-'.$fuel, ['liters_added' => $added]);
             jsonSuccess(['fuel_type' => $fuel, 'liters_after' => $after], 'Refill recorded.');
         } catch (Throwable $e) {
             if ($db->inTransaction()) $db->rollBack();
-            jsonError('Could not record refill: '.$e->getMessage(), 500);
+            error_log('GreenFuel inventory refill failed: '.$e->getMessage());
+            jsonError('Could not record refill.', 500);
         }
     }
 
@@ -324,6 +328,7 @@ switch ($action) {
             jsonSuccess($stmt->fetchAll());
         }
         requireRole('owner');
+        requireCsrf();
         $b = getBody();
         $branch = allowedBranch($user, $b['branch_id'] ?? null);
         $fuel = trim($b['fuel_type'] ?? '');
@@ -338,6 +343,7 @@ switch ($action) {
              SET liters_per_cm=?, critical_liters=?, max_height_cm=?, updated_by=?, updated_at=NOW()
              WHERE branch_id=? AND fuel_type=?"
         )->execute([$lpc, max(0, $critical), $maxCm, $user['id'], $branch, $fuel]);
+        auditLog($db, $user, 'inventory_calibration_update', 'fuel_calibration', $branch.'-'.$fuel);
         jsonSuccess(null, 'Calibration updated.');
     }
 

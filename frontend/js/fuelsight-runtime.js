@@ -67,14 +67,17 @@ async function initFuelSightPOS() {
   if (!selectedFuel && allFuels.length) selectedFuel = allFuels[0];
   const shiftOpen = !!window.fsActiveShift;
   const started = window.fsActiveShift?.start_time ? fmtDT(window.fsActiveShift.start_time) : 'Not started';
+  const branchSafe = posReceiptSafe(branch);
+  const cashierSafe = posReceiptSafe(currentUser.name || 'Cashier');
+  const startedSafe = posReceiptSafe(started);
   page.innerHTML = `
     <div class="gf-pos gf-pos-clean">
       <div class="gf-pos-top">
         <div class="gf-pos-title">
           <span>⛽</span>
           <div>
-            <h2>${branch}</h2>
-            <p>${fsDateLong()} · Cashier: ${currentUser.name || 'Cashier'} · ${shiftOpen ? `Shift started ${started}` : 'No active shift'}</p>
+            <h2>${branchSafe}</h2>
+            <p>${posReceiptSafe(fsDateLong())} · Cashier: ${cashierSafe} · ${shiftOpen ? `Shift started ${startedSafe}` : 'No active shift'}</p>
           </div>
         </div>
         <div class="gf-shift-actions">

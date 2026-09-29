@@ -62,28 +62,27 @@ Go to: **http://localhost/greenfuel/frontend/**
 
 ---
 
-## Login Credentials
+## Seed Accounts
 
-| Email     | Password  | Role    | Access                                              |
-|-----------|-----------|---------|-----------------------------------------------------|
-| owner@greenfuel.local    | admin123 | Owner   | Dashboard, Branches, Comparison, Forecasting, Analytics |
-| manager1@greenfuel.local | mgr123   | Manager | Dashboard, Records, Weekly Report, Shift Verify, POS |
-| manager2@greenfuel.local | mgr456   | Manager | Same as manager1 but for Santa Rosa branch          |
-| cashier1@greenfuel.local | pos123   | Cashier | POS Terminal only                                   |
-| cashier2  | pos456    | Cashier | POS Terminal only                                   |
+The schema creates sample owner, manager, and cashier accounts with bcrypt-hashed passwords.
+For security, default passwords are not published in this README. Set or reset passwords through the database migration/reset flow before using the system in a demo or production server.
 
 ---
 
 ## Database Configuration
 
-Edit `backend/config.php` to change database settings:
+Use environment variables for deployed servers:
 
-```php
-define('DB_HOST', 'localhost');
-define('DB_NAME', 'greenfuel');
-define('DB_USER', 'root');   // your MySQL username
-define('DB_PASS', '');       // your MySQL password (blank for XAMPP default)
+```bash
+GREENFUEL_ENV=production
+GREENFUEL_DB_HOST=localhost
+GREENFUEL_DB_NAME=greenfuel
+GREENFUEL_DB_USER=greenfuel_app
+GREENFUEL_DB_PASS=change-this-password
+GREENFUEL_ALLOWED_ORIGINS=https://your-domain.example
 ```
+
+Local XAMPP fallback values still exist for development only. In production, the app refuses to run with `root` or a blank database password.
 
 ---
 
