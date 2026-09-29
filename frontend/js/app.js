@@ -6,6 +6,7 @@ let allFuels = [];
 const charts = {};
 let gfNotifications = [];
 let gfNotificationTimer = null;
+let gfNotificationPanelOpen = false;
 const destroyChart = k => { if (charts[k]) { try { charts[k].destroy(); } catch(e){} delete charts[k]; }};
 const loadedPages = new Set();
 const PAGE_FRAGMENTS = {
@@ -431,30 +432,56 @@ function notificationIconPath() {
   return 'M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22zm8-6.5V17H4v-1.5l2-2V9a6 6 0 0 1 4.5-5.82V2a1.5 1.5 0 0 1 3 0v1.18A6 6 0 0 1 18 9v4.5l2 2z';
 }
 
-function notificationModalRoot() {
-  let root = document.getElementById('gf-global-modal-root') || document.getElementById('gf-modal-root');
-  if (!root) {
-    root = document.createElement('div');
-    root.id = 'gf-global-modal-root';
-    document.body.appendChild(root);
-  }
-  return root;
-}
-
 function renderNotificationShell() {
   const host = document.getElementById('sidebar-notifications');
   if (!host) return;
   if (!currentUser || !['owner', 'manager'].includes(currentUser.role)) {
+    gfNotificationPanelOpen = false;
     host.innerHTML = '';
     return;
   }
   const count = gfNotifications.length;
   host.innerHTML = `
-    <button class="notification-trigger ${count ? 'has-alerts' : ''}" type="button" onclick="openNotifications()">
-      <span class="notification-trigger-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="${notificationIconPath()}"/></svg></span>
-      <span><b>Notifications</b><small>${count ? `${count} item${count === 1 ? '' : 's'} need attention` : 'No urgent items'}</small></span>
-      <em>${count}</em>
-    </button>`;
+    <button class="notification-bell ${count ? 'has-alerts' : ''}" type="button" onclick="toggleNotifications(event)" aria-label="Notifications" aria-expanded="${gfNotificationPanelOpen ? 'true' : 'false'}">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="${notificationIconPath()}"/></svg>
+      ${count ? `<span class="notification-badge">${count > 9 ? '9+' : count}</span>` : ''}
+    </button>
+    ${gfNotificationPanelOpen ? notificationPanelHTML() : ''}`;
+}
+
+function notificationPanelHTML() {
+  const roleText = currentUser?.role === 'owner'
+    ? 'Network items that need owner attention.'
+    : 'Branch items that need manager attention.';
+  return `
+    <div class="notification-popover" role="dialog" aria-label="Notifications" onclick="event.stopPropagation()">
+      <div class="notification-popover-head">
+        <div>
+          <h3>Notifications</h3>
+          <p>${roleText}</p>
+        </div>
+        <span>${gfNotifications.length}</span>
+      </div>
+      <div class="notification-list notification-popover-list">
+        ${gfNotifications.length ? gfNotifications.map(item => `
+          <button class="notification-item ${gfEscape(item.tone)}" type="button" onclick="openNotificationTarget('${gfEscape(item.page)}')">
+            <span class="notification-dot"></span>
+            <span class="notification-copy">
+              <b>${gfEscape(item.title)}</b>
+              <small>${gfEscape(item.body)}</small>
+              ${item.meta ? `<em>${gfEscape(item.meta)}</em>` : ''}
+            </span>
+            <span class="notification-arrow">View</span>
+          </button>`).join('') : `
+          <div class="notification-empty notification-popover-empty">
+            <b>Nothing urgent right now</b>
+            <span>New report, price, and shift items will appear here automatically.</span>
+          </div>`}
+      </div>
+      <div class="notification-popover-actions">
+        <button type="button" class="btn-outline btn-sm" onclick="refreshNotifications()">Refresh</button>
+      </div>
+    </div>`;
 }
 
 function notificationItem(title, body, page, tone = 'info', meta = '') {
@@ -561,8 +588,20 @@ function stopNotificationRefresh() {
   }
 }
 
+function toggleNotifications(event) {
+  if (event) event.stopPropagation();
+  gfNotificationPanelOpen = !gfNotificationPanelOpen;
+  renderNotificationShell();
+}
+
+function closeNotificationsPanel() {
+  if (!gfNotificationPanelOpen) return;
+  gfNotificationPanelOpen = false;
+  renderNotificationShell();
+}
+
 function openNotificationTarget(page) {
-  closeGfModal();
+  closeNotificationsPanel();
   const navBtn = document.querySelector(`.nav-item[data-page="${page}"]`);
   document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
   document.querySelector('.account-trigger')?.classList.remove('active');
@@ -571,37 +610,19 @@ function openNotificationTarget(page) {
 }
 
 function openNotifications() {
-  const root = notificationModalRoot();
-  const items = gfNotifications;
-  root.innerHTML = `
-    <div class="gf-modal-backdrop">
-      <div class="gf-modal notification-modal">
-        <button class="gf-modal-x" onclick="closeGfModal()">×</button>
-        <h2>Notifications</h2>
-        <p>${currentUser.role === 'owner' ? 'Network items that need owner attention.' : 'Branch items that need manager attention.'}</p>
-        <div class="notification-list">
-          ${items.length ? items.map((item, index) => `
-            <button class="notification-item ${gfEscape(item.tone)}" type="button" onclick="openNotificationTarget('${gfEscape(item.page)}')">
-              <span class="notification-dot"></span>
-              <span class="notification-copy">
-                <b>${gfEscape(item.title)}</b>
-                <small>${gfEscape(item.body)}</small>
-                ${item.meta ? `<em>${gfEscape(item.meta)}</em>` : ''}
-              </span>
-              <span class="notification-arrow">View</span>
-            </button>`).join('') : `
-            <div class="notification-empty">
-              <b>Nothing urgent right now</b>
-              <span>New report, price, and shift items will appear here automatically.</span>
-            </div>`}
-        </div>
-        <div class="gf-modal-actions">
-          <button class="btn-outline" onclick="refreshNotifications(); closeGfModal()">Refresh</button>
-          <button class="btn-green" onclick="closeGfModal()">Close</button>
-        </div>
-      </div>
-    </div>`;
+  gfNotificationPanelOpen = true;
+  renderNotificationShell();
 }
+
+document.addEventListener('click', event => {
+  if (!gfNotificationPanelOpen) return;
+  const host = document.getElementById('sidebar-notifications');
+  if (host && !host.contains(event.target)) closeNotificationsPanel();
+});
+
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') closeNotificationsPanel();
+});
 
 async function ensurePageLoaded(pageId) {
   if (loadedPages.has(pageId)) return;
