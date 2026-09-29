@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
-<link rel="stylesheet" href="css/style.css?v=20260929-brand-notifications"/>
+<link rel="stylesheet" href="css/style.css?v=20260929-account-menu"/>
 </head>
 <body>
 
@@ -101,17 +101,17 @@
       </div>
       <nav class="sidebar-nav" id="sidebar-nav"></nav>
       <div class="sidebar-footer">
-        <button class="user-row account-trigger" type="button" onclick="openAccountSettings()" title="Account settings">
-          <div class="avatar" id="user-avatar">?</div>
-          <div>
-            <div class="user-name" id="user-name-display">—</div>
-            <div class="user-role-txt" id="user-role-display">—</div>
-          </div>
-        </button>
-        <button class="btn-logout" onclick="doLogout()">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
-          Sign out
-        </button>
+        <div class="account-menu-wrap" id="account-menu-wrap">
+          <button class="user-row account-trigger" type="button" onclick="toggleAccountMenu(event)" title="Account menu" aria-expanded="false">
+            <div class="avatar" id="user-avatar">?</div>
+            <div class="account-trigger-copy">
+              <div class="user-name" id="user-name-display">—</div>
+              <div class="user-role-txt" id="user-role-display">—</div>
+            </div>
+            <svg class="account-chevron" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 10l5 5 5-5z"/></svg>
+          </button>
+          <div id="account-menu-popover"></div>
+        </div>
       </div>
     </div>
 
@@ -127,7 +127,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="js/api.js?v=20260929-theme-persist"></script>
-<script src="js/app.js?v=20260929-brand-notifications"></script>
+<script src="js/app.js?v=20260929-account-menu"></script>
 <script src="js/fuelsight-runtime.js?v=20260922-pos-fit2"></script>
 </body>
 </html>

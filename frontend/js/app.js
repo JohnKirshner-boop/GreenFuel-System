@@ -7,6 +7,7 @@ const charts = {};
 let gfNotifications = [];
 let gfNotificationTimer = null;
 let gfNotificationPanelOpen = false;
+let gfAccountMenuOpen = false;
 const destroyChart = k => { if (charts[k]) { try { charts[k].destroy(); } catch(e){} delete charts[k]; }};
 const loadedPages = new Set();
 const PAGE_FRAGMENTS = {
@@ -279,6 +280,8 @@ function returnToLoginFromForgot() {
 
 function finishLogoutClientSide() {
   stopNotificationRefresh();
+  gfAccountMenuOpen = false;
+  gfNotificationPanelOpen = false;
   if (typeof gfActiveShift !== 'undefined') gfActiveShift = null;
   window.fsActiveShift = null;
   window.gfPendingLogoutAfterShift = false;
@@ -397,6 +400,7 @@ function updateUserChrome() {
   document.getElementById('user-name-display').textContent = currentUser.name;
   document.getElementById('user-role-display').textContent = currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1);
   document.getElementById('sidebar-role-label').textContent = currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1) + ' Portal';
+  renderAccountMenuShell();
 }
 
 function setupSidebar() {
@@ -410,6 +414,7 @@ function setupSidebar() {
     btn.dataset.page = item.page;
     btn.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="${item.icon}"/></svg>${item.label}`;
     btn.onclick = () => {
+      closeAccountMenu();
       document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
       document.querySelector('.account-trigger')?.classList.remove('active');
       btn.classList.add('active');
@@ -423,9 +428,84 @@ function setupSidebar() {
 }
 
 function openAccountSettings() {
+  closeAccountMenu();
   document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
   document.querySelector('.account-trigger')?.classList.add('active');
   loadPage('page-account');
+}
+
+function accountRoleLabel() {
+  if (!currentUser?.role) return 'Account';
+  return currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1);
+}
+
+function renderAccountMenuShell() {
+  const host = document.getElementById('account-menu-popover');
+  const trigger = document.querySelector('.account-trigger');
+  if (!host || !trigger) return;
+  if (!currentUser) {
+    gfAccountMenuOpen = false;
+    host.innerHTML = '';
+    trigger.setAttribute('aria-expanded', 'false');
+    return;
+  }
+  trigger.setAttribute('aria-expanded', gfAccountMenuOpen ? 'true' : 'false');
+  trigger.classList.toggle('menu-open', gfAccountMenuOpen);
+  if (!gfAccountMenuOpen) {
+    host.innerHTML = '';
+    return;
+  }
+  const theme = normalizeTheme(currentUser.theme_preference || localStorage.getItem('greenfuel-theme') || 'light');
+  host.innerHTML = `
+    <div class="account-popover" role="menu" aria-label="Account menu" onclick="event.stopPropagation()">
+      <div class="account-popover-head">
+        <div class="avatar account-popover-avatar" id="account-menu-avatar">?</div>
+        <div>
+          <h3>${gfEscape(currentUser.name || 'GreenFuel User')}</h3>
+          <p>${gfEscape(currentUser.email || currentUser.username || '')}</p>
+          <span>${gfEscape(accountRoleLabel())} · ${gfEscape(accountBranchLabel())}</span>
+        </div>
+      </div>
+      <button class="account-menu-item" type="button" onclick="openAccountSettingsFromMenu()">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.43 12.98c.04-.32.07-.65.07-.98s-.02-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.37-.31-.6-.22l-2.49 1a7.28 7.28 0 0 0-1.69-.98L14.5 2.42A.5.5 0 0 0 14 2h-4a.5.5 0 0 0-.5.42L9.12 5.07c-.61.24-1.18.56-1.69.98l-2.49-1a.5.5 0 0 0-.6.22l-2 3.46a.5.5 0 0 0 .12.64l2.11 1.65c-.04.32-.07.65-.07.98s.02.66.07.98l-2.11 1.65a.5.5 0 0 0-.12.64l2 3.46c.12.22.37.31.6.22l2.49-1c.51.4 1.08.73 1.69.98l.38 2.65c.04.24.25.42.5.42h4c.25 0 .46-.18.5-.42l.38-2.65c.61-.24 1.18-.56 1.69-.98l2.49 1c.23.08.48 0 .6-.22l2-3.46a.5.5 0 0 0-.12-.64l-2.11-1.65zM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5z"/></svg>
+        <span><b>Account Settings</b><small>Profile picture, name, password</small></span>
+      </button>
+      <div class="account-menu-section">
+        <div class="account-menu-label">Appearance</div>
+        <div class="account-menu-theme">
+          <button type="button" class="${theme === 'light' ? 'active' : ''}" onclick="chooseAccountMenuTheme('light')">Light</button>
+          <button type="button" class="${theme === 'dark' ? 'active' : ''}" onclick="chooseAccountMenuTheme('dark')">Night</button>
+        </div>
+      </div>
+      <button class="account-menu-item danger" type="button" onclick="doLogout()">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+        <span><b>Sign out</b><small>Leave this portal session</small></span>
+      </button>
+    </div>`;
+  paintAvatar(document.getElementById('account-menu-avatar'), currentUser);
+}
+
+function toggleAccountMenu(event) {
+  if (event) event.stopPropagation();
+  closeNotificationsPanel();
+  gfAccountMenuOpen = !gfAccountMenuOpen;
+  renderAccountMenuShell();
+}
+
+function closeAccountMenu() {
+  if (!gfAccountMenuOpen) return;
+  gfAccountMenuOpen = false;
+  renderAccountMenuShell();
+}
+
+function openAccountSettingsFromMenu() {
+  closeAccountMenu();
+  openAccountSettings();
+}
+
+async function chooseAccountMenuTheme(theme) {
+  await setAccountTheme(theme);
+  renderAccountMenuShell();
 }
 
 function notificationIconPath() {
@@ -590,6 +670,7 @@ function stopNotificationRefresh() {
 
 function toggleNotifications(event) {
   if (event) event.stopPropagation();
+  closeAccountMenu();
   gfNotificationPanelOpen = !gfNotificationPanelOpen;
   renderNotificationShell();
 }
@@ -620,8 +701,17 @@ document.addEventListener('click', event => {
   if (host && !host.contains(event.target)) closeNotificationsPanel();
 });
 
+document.addEventListener('click', event => {
+  if (!gfAccountMenuOpen) return;
+  const host = document.getElementById('account-menu-wrap');
+  if (host && !host.contains(event.target)) closeAccountMenu();
+});
+
 document.addEventListener('keydown', event => {
-  if (event.key === 'Escape') closeNotificationsPanel();
+  if (event.key === 'Escape') {
+    closeNotificationsPanel();
+    closeAccountMenu();
+  }
 });
 
 async function ensurePageLoaded(pageId) {

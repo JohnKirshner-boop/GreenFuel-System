@@ -142,7 +142,8 @@ body{font-family:'DM Sans',sans-serif;color:var(--text);background:var(--bg);min
 :root[data-theme="dark"] .nav-item{color:rgba(238,248,241,.68)}
 :root[data-theme="dark"] .nav-item:hover,
 :root[data-theme="dark"] .account-trigger:hover,
-:root[data-theme="dark"] .account-trigger.active{background:rgba(36,181,101,.13);border-color:rgba(126,230,164,.16);color:#fff}
+:root[data-theme="dark"] .account-trigger.active,
+:root[data-theme="dark"] .account-trigger.menu-open{background:rgba(36,181,101,.13);border-color:rgba(126,230,164,.16);color:#fff}
 :root[data-theme="dark"] .nav-item.active{background:var(--green);color:#fff}
 :root[data-theme="dark"] .btn-logout{background:rgba(238,248,241,.05);border-color:rgba(126,230,164,.16);color:rgba(238,248,241,.65)}
 :root[data-theme="dark"] .btn-logout:hover{background:rgba(220,53,69,.18);border-color:rgba(248,113,113,.36);color:#fecaca}
@@ -157,6 +158,12 @@ body{font-family:'DM Sans',sans-serif;color:var(--text);background:var(--bg);min
 :root[data-theme="dark"] .notification-popover,
 :root[data-theme="dark"] .notification-popover::before{background:#101d16;border-color:var(--border)}
 :root[data-theme="dark"] .notification-popover-head>span{background:#2f2410;color:#fbbf24}
+:root[data-theme="dark"] .account-popover,
+:root[data-theme="dark"] .account-popover::before{background:#101d16;border-color:var(--border)}
+:root[data-theme="dark"] .account-menu-item:hover{background:#17291f}
+:root[data-theme="dark"] .account-menu-theme{background:var(--surface);border-color:var(--border)}
+:root[data-theme="dark"] .account-menu-theme button{color:var(--muted)}
+:root[data-theme="dark"] .account-menu-theme button.active{background:var(--green);color:#fff}
 #app{display:flex;flex-direction:column;min-height:100vh}
 .screen{display:none;flex:1;flex-direction:column}
 .screen.active{display:flex}
@@ -253,17 +260,39 @@ body{font-family:'DM Sans',sans-serif;color:var(--text);background:var(--bg);min
 .nav-item:hover{background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.9)}
 .nav-item.active{background:var(--green);color:white;font-weight:500}
 .nav-item svg{width:15px;height:15px;flex-shrink:0}
-.sidebar-footer{padding:1rem 1.25rem;border-top:1px solid rgba(255,255,255,0.08)}
+.sidebar-footer{padding:1rem 1.25rem;border-top:1px solid rgba(255,255,255,0.08);position:relative}
+.account-menu-wrap{position:relative}
 .user-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .account-trigger{width:100%;border:1px solid transparent;background:transparent;border-radius:var(--rad-sm);padding:7px;text-align:left;
-  font-family:'DM Sans',sans-serif;cursor:pointer;transition:background .15s,border-color .15s}
-.account-trigger:hover,.account-trigger.active{background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.12)}
+  font-family:'DM Sans',sans-serif;cursor:pointer;transition:background .15s,border-color .15s;margin-bottom:0}
+.account-trigger:hover,.account-trigger.active,.account-trigger.menu-open{background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.12)}
 .account-trigger:focus-visible{outline:2px solid rgba(255,255,255,.55);outline-offset:2px}
+.account-trigger-copy{min-width:0;flex:1}
+.account-chevron{width:17px;height:17px;flex-shrink:0;color:rgba(255,255,255,.42);transition:transform .15s,color .15s}
+.account-trigger.menu-open .account-chevron{transform:rotate(180deg);color:white}
 .avatar{width:34px;height:34px;border-radius:50%;background:var(--green);
   display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:white;flex-shrink:0}
 .avatar.has-photo,.account-avatar-preview.has-photo{background-size:cover;background-position:center;background-color:white;color:transparent}
 .user-name{font-size:13px;font-weight:500;color:white}
 .user-role-txt{font-size:11px;color:rgba(255,255,255,0.45)}
+.account-popover{position:absolute;left:calc(100% + 14px);bottom:0;width:340px;max-width:calc(100vw - 270px);z-index:75;background:var(--card);border:1px solid var(--border);border-radius:13px;box-shadow:0 24px 70px rgba(0,0,0,.28);padding:10px;color:var(--text)}
+.account-popover::before{content:'';position:absolute;left:-7px;bottom:28px;width:12px;height:12px;background:var(--card);border-left:1px solid var(--border);border-bottom:1px solid var(--border);transform:rotate(45deg)}
+.account-popover-head{display:grid;grid-template-columns:46px minmax(0,1fr);gap:12px;align-items:center;padding:9px 8px 14px;border-bottom:1px solid var(--border)}
+.account-popover-avatar{width:46px;height:46px;font-size:16px}
+.account-popover-head h3{font-size:15px;line-height:1.2;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.account-popover-head p{font-size:12px;line-height:1.35;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.account-popover-head span{display:block;margin-top:6px;font-size:11px;font-weight:800;color:var(--green)}
+.account-menu-item{width:100%;display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;align-items:center;border:0;border-radius:9px;background:transparent;color:var(--text);text-align:left;padding:11px 9px;font-family:'DM Sans',sans-serif;cursor:pointer}
+.account-menu-item:hover{background:#f4faf6}
+.account-menu-item svg{width:19px;height:19px;color:var(--muted);justify-self:center}
+.account-menu-item b{display:block;font-size:13px;line-height:1.2}
+.account-menu-item small{display:block;margin-top:2px;font-size:11px;line-height:1.3;color:var(--muted)}
+.account-menu-item.danger svg,.account-menu-item.danger b{color:#dc2626}
+.account-menu-section{padding:10px 8px;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.account-menu-label{font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:8px}
+.account-menu-theme{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:#eef5f1;border:1px solid var(--border);border-radius:10px;padding:4px}
+.account-menu-theme button{border:0;border-radius:7px;background:transparent;padding:8px 10px;font:800 12px 'DM Sans',sans-serif;color:var(--muted);cursor:pointer}
+.account-menu-theme button.active{background:white;color:var(--green);box-shadow:0 1px 4px rgba(15,23,42,.12)}
 .btn-logout{width:100%;padding:7px 10px;background:rgba(255,255,255,0.06);
   border:1px solid rgba(255,255,255,0.1);border-radius:var(--rad-sm);font-size:12px;
   color:rgba(255,255,255,0.5);cursor:pointer;display:flex;align-items:center;
