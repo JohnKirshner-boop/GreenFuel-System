@@ -44,11 +44,26 @@ function gfEnsureAccountSchema(PDO $db): void {
     if (!gfColumnExists($db, 'users', 'last_seen_at')) {
         $db->exec('ALTER TABLE users ADD COLUMN last_seen_at DATETIME NULL AFTER last_login_at');
     }
+    if (!gfColumnExists($db, 'users', 'account_status')) {
+        $db->exec("ALTER TABLE users ADD COLUMN account_status ENUM('pending','active','deactivated') NOT NULL DEFAULT 'active' AFTER role");
+    }
+    if (!gfColumnExists($db, 'users', 'activated_at')) {
+        $db->exec('ALTER TABLE users ADD COLUMN activated_at DATETIME NULL AFTER last_seen_at');
+    }
+    if (!gfColumnExists($db, 'users', 'activated_by')) {
+        $db->exec('ALTER TABLE users ADD COLUMN activated_by INT NULL AFTER activated_at');
+    }
 
     $db->exec(
         "UPDATE users
             SET email = CONCAT(LOWER(REPLACE(username, ' ', '')), '@greenfuel.local')
           WHERE email IS NULL OR email = ''"
+    );
+
+    $db->exec(
+        "UPDATE users
+            SET account_status='active'
+          WHERE account_status IS NULL OR account_status = ''"
     );
 
     gfUseDemoEmailIfAvailable($db, 'owner@greenfuel.local', "role='owner' AND (username='admin' OR email='admin@greenfuel.local')");
@@ -86,6 +101,78 @@ function gfEnsureAccountSchema(PDO $db): void {
             AND branch_id IS NOT NULL
             AND branch_id <> ''"
     );
+}
+
+function gfEnsurePasswordResetSchema(PDO $db): void {
+    $db->exec(
+        "CREATE TABLE IF NOT EXISTS password_resets (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          user_id INT NOT NULL,
+          token_hash CHAR(64) NOT NULL,
+          expires_at DATETIME NOT NULL,
+          used_at DATETIME NULL,
+          requested_ip VARCHAR(45) NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE KEY uq_password_resets_token (token_hash),
+          KEY idx_password_resets_user (user_id),
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )"
+    );
+}
+
+function gfPasswordSetupUrl(string $token): string {
+    $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (string)($_SERVER['SERVER_PORT'] ?? '') === '443'
+        || strtolower((string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https';
+    $scheme = $isHttps ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $script = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '/greenfuel-project/backend/routes/users.php');
+    $frontend = preg_replace('#/backend/routes/(users|auth)\.php$#', '/frontend/index.html', $script);
+    if (!$frontend || $frontend === $script) $frontend = '/frontend/index.html';
+    return $scheme.'://'.$host.$frontend.'?reset_token='.rawurlencode($token);
+}
+
+function gfIsLocalHost(): bool {
+    $host = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
+    return strpos($host, 'localhost') !== false || strpos($host, '127.0.0.1') !== false;
+}
+
+function gfCreatePasswordSetupLink(PDO $db, int $userId): array {
+    gfEnsurePasswordResetSchema($db);
+    $token = bin2hex(random_bytes(32));
+    $tokenHash = hash('sha256', $token);
+    $expiresAt = date('Y-m-d H:i:s', time() + 3600);
+    $db->prepare('UPDATE password_resets SET used_at=NOW() WHERE user_id=? AND used_at IS NULL')
+       ->execute([$userId]);
+    $db->prepare(
+        'INSERT INTO password_resets (user_id, token_hash, expires_at, requested_ip)
+         VALUES (?, ?, ?, ?)'
+    )->execute([
+        $userId,
+        $tokenHash,
+        $expiresAt,
+        substr((string)($_SERVER['REMOTE_ADDR'] ?? ''), 0, 45) ?: null,
+    ]);
+    return [
+        'url' => gfPasswordSetupUrl($token),
+        'expires_at' => $expiresAt,
+    ];
+}
+
+function gfSendPasswordSetupEmail(string $email, string $name, string $url, string $mode = 'activate'): bool {
+    $isActivation = $mode === 'activate';
+    $subject = $isActivation ? 'GreenFuel account activation link' : 'GreenFuel password reset link';
+    $intro = $isActivation
+        ? 'Your GreenFuel account has been activated.'
+        : 'A GreenFuel password setup/reset link was requested for your account.';
+    $body = "Hello {$name},\n\n"
+          . "{$intro}\n\n"
+          . "Open this link to create your own password:\n{$url}\n\n"
+          . "This link expires in 1 hour. If you did not expect this email, please contact your administrator.\n\n"
+          . "GreenFuel Management System";
+    $headers = "From: GreenFuel <no-reply@greenfuel.local>\r\n"
+             . "Content-Type: text/plain; charset=UTF-8\r\n";
+    return @mail($email, $subject, $body, $headers);
 }
 
 function gfNormalizeBranchIds(array $branchIds): array {

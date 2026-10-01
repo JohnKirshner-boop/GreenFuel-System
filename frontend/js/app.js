@@ -2584,6 +2584,62 @@ function userRoleBadge(role) {
   return { owner: 'badge-blue', manager: 'badge-green', cashier: 'badge-amber' }[role] || 'badge-gray';
 }
 
+function userAccountStatusBadge(status) {
+  const key = String(status || 'active').toLowerCase();
+  return {
+    active: 'badge-green',
+    pending: 'badge-amber',
+    deactivated: 'badge-red',
+  }[key] || 'badge-gray';
+}
+
+function userAccountStatusLabel(status) {
+  const key = String(status || 'active').toLowerCase();
+  return { active: 'Active', pending: 'Pending Activation', deactivated: 'Deactivated' }[key] || 'Active';
+}
+
+function userAccountActionButtons(user) {
+  const status = String(user.account_status || 'active').toLowerCase();
+  const isOwnerAccount = user.role === 'owner';
+  const activateLabel = status === 'active' ? 'Send Reset Link' : 'Activate & Send Link';
+  const activateBtn = isOwnerAccount
+    ? ''
+    : `<button class="btn-green btn-sm" type="button" onclick="activateUserAccount(${Number(user.id)})">${activateLabel}</button>`;
+  const deactivateBtn = (!isOwnerAccount && status !== 'deactivated')
+    ? `<button class="btn-outline btn-sm danger-text" type="button" onclick="deactivateUserAccount(${Number(user.id)})">Deactivate</button>`
+    : '';
+  return `<div class="user-role-row-actions">
+    <button class="btn-outline btn-sm" type="button" onclick="editUserRole(${Number(user.id)})">Edit</button>
+    ${activateBtn}
+    ${deactivateBtn}
+  </div>`;
+}
+
+function openAccountSetupLinkModal(result, mode = 'activation') {
+  const link = result?.dev_activation_link || result?.dev_reset_link || '';
+  if (!link) return;
+  const root = document.getElementById('gf-global-modal-root') || (() => {
+    const el = document.createElement('div');
+    el.id = 'gf-global-modal-root';
+    document.body.appendChild(el);
+    return el;
+  })();
+  const label = mode === 'reset' ? 'password reset' : 'activation';
+  root.innerHTML = `
+    <div class="gf-modal-backdrop">
+      <div class="gf-modal">
+        <button class="gf-modal-x" type="button" onclick="closeGfModal()">×</button>
+        <h2>Account ${label} link</h2>
+        <p>Email is not configured on this local server, so use this secure setup link for testing. In deployment, configure mail so the user receives it privately.</p>
+        <label class="account-link-field">Setup Link<input value="${gfEscape(link)}" readonly onclick="this.select()"></label>
+        <div class="gf-modal-actions">
+          <button class="btn-outline" type="button" onclick="closeGfModal()">Close</button>
+          <a class="btn-green" href="${gfEscape(link)}">Open Link</a>
+        </div>
+      </div>
+    </div>`;
+}
+
 function userRoleBranchOptions(selected = '') {
   const selectedId = String(selected || '');
   return `<option value="">Select branch</option>${gfUserBranches.map(b =>
@@ -2655,9 +2711,6 @@ function toggleUserRoleBranch() {
   const branchWrap = document.getElementById('user-role-branch-wrap');
   const positionWrap = document.getElementById('user-role-position-wrap');
   const managerWrap = document.getElementById('user-role-manager-wrap');
-  const passwordWrap = document.getElementById('user-role-password-wrap');
-  const password = document.getElementById('user-role-password');
-  const lockedNote = document.getElementById('user-role-password-note');
   const help = document.getElementById('user-role-help');
   const isOwner = role === 'owner';
   const isManager = role === 'manager';
@@ -2670,16 +2723,10 @@ function toggleUserRoleBranch() {
   if (positionWrap) positionWrap.style.display = managerMode ? 'none' : 'block';
   if (managerWrap) managerWrap.style.display = (!managerMode && isManager) ? 'block' : 'none';
   if (!managerMode && isManager && !document.querySelector('.manager-branch-select')) setManagerBranches(['']);
-  if (password) {
-    password.disabled = !managerMode && isOwner;
-    if (isOwner) password.value = '';
-  }
-  if (passwordWrap) passwordWrap.classList.toggle('muted-field', !managerMode && isOwner);
-  if (lockedNote) lockedNote.style.display = (!managerMode && isOwner) ? 'block' : 'none';
   if (help) help.textContent = managerMode
     ? 'Managers can create and update cashier accounts only for their assigned branch access.'
     : isOwner
-    ? 'Owner accounts can access all branches. Owner passwords are hidden and managed outside this portal.'
+    ? 'Owner accounts can access all branches. Passwords are never shown or changed in this portal.'
     : isManager
       ? 'Managers can hold multiple branches. The first selected branch becomes their default branch.'
       : 'Cashiers can only sign in to the one branch assigned here.';
@@ -2710,29 +2757,34 @@ function renderUserRoles() {
     owner: gfUserCache.filter(u => u.role === 'owner').length,
     manager: gfUserCache.filter(u => u.role === 'manager').length,
     cashier: gfUserCache.filter(u => u.role === 'cashier').length,
+    pending: gfUserCache.filter(u => String(u.account_status || 'active') === 'pending').length,
+    active: gfUserCache.filter(u => String(u.account_status || 'active') === 'active').length,
+    deactivated: gfUserCache.filter(u => String(u.account_status || 'active') === 'deactivated').length,
   };
   const statsHtml = managerMode
     ? `<div class="gf-stat-grid three user-role-stats">
          ${gfCard('Cashier Accounts', counts.cashier)}
-         ${gfCard('Assigned Branches', gfUserBranches.length)}
-         ${gfCard('Access Scope', 'Cashiers only')}
+         ${gfCard('Pending Activation', counts.pending)}
+         ${gfCard('Active Cashiers', counts.active)}
        </div>`
     : `<div class="gf-stat-grid three user-role-stats">
-       ${gfCard('Owners', counts.owner)}
-       ${gfCard('Managers', counts.manager)}
-       ${gfCard('Cashiers', counts.cashier)}
+       ${gfCard('Pending Activation', counts.pending)}
+       ${gfCard('Active Accounts', counts.active)}
+       ${gfCard('Deactivated', counts.deactivated)}
      </div>`;
-  gfPageShell('page-user-roles', managerMode ? 'Cashier Accounts' : 'User Role Assignment', managerMode ? 'Create and manage cashier logins for your assigned branch.' : 'Assign staff portal access, branch, and position.',
+  gfPageShell('page-user-roles', managerMode ? 'Cashier Accounts' : 'Account Activation', managerMode ? 'Create cashier accounts without seeing or setting their passwords.' : 'Create staff accounts, activate access, and send private password setup links.',
     `${statsHtml}
      <div class="gf-user-role-grid">
        <div class="gf-card user-role-form-card">
-         <div class="gf-card-head"><div><h3>${managerMode ? 'Cashier Account' : 'Assign User'}</h3><p>${managerMode ? 'Create cashier access for your branch POS terminal.' : 'Create staff accounts or update their role and branch.'}</p></div></div>
+         <div class="gf-card-head"><div><h3>${managerMode ? 'Cashier Account Form' : 'Staff Account Form'}</h3><p>${managerMode ? 'Create a cashier account for your assigned branch.' : 'Create staff access using email, role, and branch assignment only.'}</p></div></div>
          <form id="user-role-form" onsubmit="submitUserRole(event)">
            <input type="hidden" id="user-role-id">
            <label>Full Name<input id="user-role-name" required placeholder="e.g. Ana Reyes"></label>
            <label>Email<input id="user-role-email" type="email" required placeholder="e.g. cashier.branch@greenfuel.local"></label>
-           <label id="user-role-password-wrap">Password<input id="user-role-password" type="password" placeholder="${managerMode ? 'Required for new cashier users' : 'Required for new manager/cashier users'}"></label>
-           <p id="user-role-password-note" class="password-locked-note">Owner passwords are not shown or changed in this portal.</p>
+           <div class="account-privacy-note">
+             <b>Password Privacy</b>
+             <span>No password is shown, typed, or changed here. New users set their own password through a private activation link.</span>
+           </div>
            <div class="user-role-two">
              <label id="user-role-position-wrap">Position
                <select id="user-role-role" required onchange="toggleUserRoleBranch()">
@@ -2757,23 +2809,24 @@ function renderUserRoles() {
            <p id="user-role-help" class="user-role-help">Managers can hold multiple branches. The first selected branch becomes their default branch.</p>
            <div class="user-role-actions">
              <button type="button" class="btn-outline" onclick="resetUserRoleForm()">${managerMode ? 'New Cashier' : 'New User'}</button>
-             <button type="submit" class="btn-green">Save Assignment</button>
+             <button type="submit" class="btn-green">Save Account</button>
            </div>
          </form>
        </div>
        <div class="gf-card">
-         <div class="gf-card-head"><div><h3>${managerMode ? 'Branch Cashiers' : 'Assigned Staff'}</h3><p>${managerMode ? 'Cashier accounts under your assigned branch access.' : 'Owner-controlled portal access list.'}</p></div></div>
+         <div class="gf-card-head"><div><h3>${managerMode ? 'Branch Cashiers' : 'Account Activation List'}</h3><p>${managerMode ? 'Activate, deactivate, or update cashier access.' : 'Activate pending accounts and send setup links without handling passwords.'}</p></div></div>
          <div class="tbl-wrap">
            <table>
-             <thead><tr><th>Name</th><th>Email</th><th>Position</th><th>Branch Access</th><th class="td-right">Action</th></tr></thead>
+             <thead><tr><th>Name</th><th>Email</th><th>Position</th><th>Branch Access</th><th>Status</th><th class="td-right">Action</th></tr></thead>
              <tbody>${gfUserCache.map(u => `
                <tr>
                  <td><b>${gfEscape(u.name)}</b></td>
                  <td class="mono">${gfEscape(u.email || u.username)}</td>
                  <td><span class="badge ${userRoleBadge(u.role)}">${String(u.role).toUpperCase()}</span></td>
                  <td>${userRoleBranchSummary(u)}</td>
-                 <td class="td-right"><button class="btn-outline btn-sm" onclick="editUserRole(${u.id})">Edit</button></td>
-               </tr>`).join('') || '<tr><td colspan="5" class="td-center">No users found</td></tr>'}
+                 <td><span class="badge ${userAccountStatusBadge(u.account_status)}">${userAccountStatusLabel(u.account_status)}</span>${u.activated_at ? `<br><small>Activated ${fmtDT(u.activated_at)}</small>` : ''}</td>
+                 <td class="td-right">${userAccountActionButtons(u)}</td>
+               </tr>`).join('') || '<tr><td colspan="6" class="td-center">No users found</td></tr>'}
              </tbody>
            </table>
          </div>
@@ -2790,8 +2843,6 @@ function resetUserRoleForm() {
   document.getElementById('user-role-id').value = '';
   document.getElementById('user-role-role').value = managerMode ? 'cashier' : 'manager';
   document.getElementById('user-role-branch').value = managerMode && gfUserBranches.length === 1 ? gfUserBranches[0].id : '';
-  document.getElementById('user-role-password').disabled = false;
-  document.getElementById('user-role-password').placeholder = managerMode ? 'Required for new cashier users' : 'Required for new manager/cashier users';
   if (!managerMode) setManagerBranches(['']);
   toggleUserRoleBranch();
 }
@@ -2803,11 +2854,7 @@ function editUserRole(id) {
   document.getElementById('user-role-id').value = user.id;
   document.getElementById('user-role-name').value = user.name || '';
   document.getElementById('user-role-email').value = user.email || user.username || '';
-  document.getElementById('user-role-password').value = '';
   document.getElementById('user-role-role').value = managerMode ? 'cashier' : (user.role || 'cashier');
-  document.getElementById('user-role-password').placeholder = user.role === 'owner'
-    ? 'Owner password cannot be changed here'
-    : 'Leave blank to keep current password';
   document.getElementById('user-role-branch').innerHTML = userRoleBranchOptions(user.branch_id || '');
   if (!managerMode) setManagerBranches(user.role === 'manager' ? (user.branch_ids || []) : ['']);
   toggleUserRoleBranch();
@@ -2826,7 +2873,6 @@ async function submitUserRole(event) {
     id: id || undefined,
     name: document.getElementById('user-role-name').value.trim(),
     email: document.getElementById('user-role-email').value.trim(),
-    password: role === 'owner' ? '' : document.getElementById('user-role-password').value,
     role,
     branch_id: role === 'manager' ? (managerBranches[0] || '') : role === 'cashier' ? cashierBranch : '',
     branch_ids: role === 'manager' ? managerBranches : role === 'cashier' ? [cashierBranch] : [],
@@ -2841,8 +2887,8 @@ async function submitUserRole(event) {
   }
   try {
     if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
-    await API.userSave(data);
-    showToast(id ? (managerMode ? 'Cashier account updated.' : 'User assignment updated.') : (managerMode ? 'Cashier account created.' : 'User assignment created.'));
+    const result = await API.userSave(data);
+    showToast(id ? (managerMode ? 'Cashier account updated.' : 'User assignment updated.') : (managerMode ? 'Cashier account saved as pending.' : 'Staff account saved as pending.'));
     gfUserCache = await API.users();
     renderUserRoles();
   } catch(e) {
@@ -2850,8 +2896,39 @@ async function submitUserRole(event) {
   } finally {
     if (btn && document.body.contains(btn)) {
       btn.disabled = false;
-      btn.textContent = 'Save Assignment';
+      btn.textContent = 'Save Account';
     }
+  }
+}
+
+async function activateUserAccount(id) {
+  const user = gfUserCache.find(u => Number(u.id) === Number(id));
+  if (!user) return;
+  const status = String(user.account_status || 'active').toLowerCase();
+  const actionText = status === 'active' ? 'send a password reset link to' : 'activate and send a password setup link to';
+  if (!confirm(`Do you want to ${actionText} ${user.name}?`)) return;
+  try {
+    const result = await API.userActivate(id);
+    showToast(result?.mail_sent ? 'Password setup link sent.' : 'Account updated. Email is not configured on this server.', result?.mail_sent ? 'ok' : 'warn');
+    openAccountSetupLinkModal(result, status === 'active' ? 'reset' : 'activation');
+    gfUserCache = await API.users();
+    renderUserRoles();
+  } catch (e) {
+    showToast(e.message || 'Could not activate account.', 'error');
+  }
+}
+
+async function deactivateUserAccount(id) {
+  const user = gfUserCache.find(u => Number(u.id) === Number(id));
+  if (!user) return;
+  if (!confirm(`Deactivate ${user.name}? They will not be able to sign in.`)) return;
+  try {
+    await API.userDeactivate(id);
+    showToast('Account deactivated.');
+    gfUserCache = await API.users();
+    renderUserRoles();
+  } catch (e) {
+    showToast(e.message || 'Could not deactivate account.', 'error');
   }
 }
 

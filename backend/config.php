@@ -140,7 +140,15 @@ function requireAuth(): array {
     $u = currentUser();
     if (!$u) jsonError('Not authenticated.', 401);
     try {
-        getDB()->prepare('UPDATE users SET last_seen_at=NOW() WHERE id=?')->execute([$u['id']]);
+        $db = getDB();
+        $db->prepare('UPDATE users SET last_seen_at=NOW() WHERE id=?')->execute([$u['id']]);
+        $stmt = $db->prepare('SELECT account_status FROM users WHERE id=? LIMIT 1');
+        $stmt->execute([$u['id']]);
+        $status = (string)($stmt->fetchColumn() ?: 'active');
+        if ($status !== 'active') {
+            session_destroy();
+            jsonError('This account is no longer active. Please contact the administrator.', 403);
+        }
     } catch (Throwable $e) {
         // Older local databases may not have presence columns until auth schema
         // helpers run; auth.php will add them automatically.

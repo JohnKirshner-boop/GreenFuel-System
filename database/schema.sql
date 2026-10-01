@@ -63,11 +63,14 @@ CREATE TABLE IF NOT EXISTS users (
   password   VARCHAR(255) NOT NULL,
   name       VARCHAR(100) NOT NULL,
   role       ENUM('owner','manager','cashier') NOT NULL,
+  account_status ENUM('pending','active','deactivated') NOT NULL DEFAULT 'active',
   branch_id  VARCHAR(10)  NULL,
   profile_image LONGTEXT  NULL,
   theme_preference VARCHAR(20) NOT NULL DEFAULT 'light',
   last_login_at DATETIME  NULL,
   last_seen_at  DATETIME  NULL,
+  activated_at DATETIME    NULL,
+  activated_by INT         NULL,
   created_at DATETIME     DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE SET NULL
 );

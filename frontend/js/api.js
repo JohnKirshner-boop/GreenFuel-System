@@ -70,6 +70,8 @@ const API = {
   // USER ROLE ASSIGNMENTS
   users: ()                       => apiFetch('users.php', { action: 'list' }),
   userSave: (data)                => apiFetch('users.php', { action: 'save' }, { method: 'POST', body: JSON.stringify(data) }),
+  userActivate: (id)              => apiFetch('users.php', { action: 'activate' }, { method: 'POST', body: JSON.stringify({ id }) }),
+  userDeactivate: (id)            => apiFetch('users.php', { action: 'deactivate' }, { method: 'POST', body: JSON.stringify({ id }) }),
 
   // TRANSACTIONS
   txList:   (params = {})        => apiFetch('transactions.php', { action: 'list',   ...params }),

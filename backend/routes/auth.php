@@ -99,6 +99,16 @@ switch ($action) {
         $stmt->execute([$email]);
         $user = $stmt->fetch();
 
+        if ($user) {
+            $accountStatus = $user['account_status'] ?? 'active';
+            if ($accountStatus === 'pending') {
+                jsonError('This account is pending activation. Please check your activation email or contact the administrator.', 403);
+            }
+            if ($accountStatus === 'deactivated') {
+                jsonError('This account is deactivated. Please contact the administrator.', 403);
+            }
+        }
+
         $ok = $user && storedPasswordIsHash((string)$user['password']) && password_verify($password, $user['password']);
         if ($user && !storedPasswordIsHash((string)$user['password'])) {
             jsonError('This account still uses an old insecure password. Ask the administrator to run the password migration or use forgot password.', 403);
@@ -158,10 +168,10 @@ switch ($action) {
 
         if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL)) jsonError('Enter a valid account email.');
 
-        $stmt = $db->prepare('SELECT id, name, email, role FROM users WHERE email=? LIMIT 1');
+        $stmt = $db->prepare('SELECT id, name, email, role, account_status FROM users WHERE email=? LIMIT 1');
         $stmt->execute([$email]);
         $target = $stmt->fetch();
-        if (!$target) {
+        if (!$target || ($target['account_status'] ?? 'active') !== 'active') {
             jsonSuccess(['mail_sent' => true], 'If that email is registered, a reset link has been sent.');
         }
         $token = bin2hex(random_bytes(32));
@@ -205,7 +215,7 @@ switch ($action) {
         if (!passwordMeetsPolicy($newPassword)) jsonError('New password must be at least 8 characters.');
 
         $stmt = $db->prepare(
-            'SELECT pr.id AS reset_id, u.id AS user_id, u.role
+            'SELECT pr.id AS reset_id, u.id AS user_id, u.role, u.account_status
              FROM password_resets pr
              INNER JOIN users u ON u.id = pr.user_id
              WHERE pr.token_hash=? AND pr.used_at IS NULL AND pr.expires_at > NOW()
@@ -214,9 +224,12 @@ switch ($action) {
         $stmt->execute([hash('sha256', $token)]);
         $reset = $stmt->fetch();
         if (!$reset) jsonError('Reset link is invalid or expired.');
+        if (($reset['account_status'] ?? 'active') === 'deactivated') {
+            jsonError('This account is deactivated. Please contact the administrator.', 403);
+        }
         $db->beginTransaction();
         try {
-            $db->prepare('UPDATE users SET password=? WHERE id=?')
+            $db->prepare("UPDATE users SET password=?, account_status='active', activated_at=COALESCE(activated_at, NOW()) WHERE id=?")
                ->execute([password_hash($newPassword, PASSWORD_DEFAULT), (int)$reset['user_id']]);
             $db->prepare('UPDATE password_resets SET used_at=NOW() WHERE id=?')
                ->execute([(int)$reset['reset_id']]);

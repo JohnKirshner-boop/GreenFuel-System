@@ -7,6 +7,14 @@
 
 -- Replace old unhashed seed-account passwords with bcrypt hashes.
 -- If these accounts are already hashed, these WHERE clauses will not touch them.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS account_status ENUM('pending','active','deactivated') NOT NULL DEFAULT 'active' AFTER role;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS activated_at DATETIME NULL AFTER last_seen_at;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS activated_by INT NULL AFTER activated_at;
+
+UPDATE users
+   SET account_status = 'active'
+ WHERE account_status IS NULL OR account_status = '';
+
 UPDATE users
    SET password = '$2y$10$RjinHCFdGltHkY7eD7N5B.GCL.99CMOpTuNaL2cBtg9f5ltsWeSAW'
  WHERE email = 'owner@greenfuel.local'
