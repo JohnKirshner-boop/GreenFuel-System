@@ -5,11 +5,55 @@
 --   mysql -u <user> -p <database_name> < security_migration.sql
 -- ============================================================
 
+-- Add account activation columns. These conditional statements avoid
+-- ALTER TABLE ... ADD COLUMN IF NOT EXISTS because some MySQL installs reject it.
+SET @sql := (
+  SELECT IF(
+    COUNT(*) = 0,
+    "ALTER TABLE users ADD COLUMN account_status ENUM('pending','active','deactivated') NOT NULL DEFAULT 'active' AFTER role",
+    "SELECT 'account_status column already exists'"
+  )
+  FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'users'
+    AND COLUMN_NAME = 'account_status'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @sql := (
+  SELECT IF(
+    COUNT(*) = 0,
+    "ALTER TABLE users ADD COLUMN activated_at DATETIME NULL AFTER last_seen_at",
+    "SELECT 'activated_at column already exists'"
+  )
+  FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'users'
+    AND COLUMN_NAME = 'activated_at'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @sql := (
+  SELECT IF(
+    COUNT(*) = 0,
+    "ALTER TABLE users ADD COLUMN activated_by INT NULL AFTER activated_at",
+    "SELECT 'activated_by column already exists'"
+  )
+  FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'users'
+    AND COLUMN_NAME = 'activated_by'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
 -- Replace old unhashed seed-account passwords with bcrypt hashes.
 -- If these accounts are already hashed, these WHERE clauses will not touch them.
-ALTER TABLE users ADD COLUMN IF NOT EXISTS account_status ENUM('pending','active','deactivated') NOT NULL DEFAULT 'active' AFTER role;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS activated_at DATETIME NULL AFTER last_seen_at;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS activated_by INT NULL AFTER activated_at;
 
 UPDATE users
    SET account_status = 'active'
