@@ -317,8 +317,11 @@ CREATE TABLE IF NOT EXISTS weekly_reports (
   submitted_by   INT           NULL,
   submitted_at   DATETIME      NULL,
   status         ENUM('draft','submitted','approved') DEFAULT 'draft',
+  approved_by    INT           NULL,
+  approved_at    DATETIME      NULL,
   FOREIGN KEY (branch_id)    REFERENCES branches(id),
-  FOREIGN KEY (submitted_by) REFERENCES users(id) ON DELETE SET NULL
+  FOREIGN KEY (submitted_by) REFERENCES users(id) ON DELETE SET NULL,
+  FOREIGN KEY (approved_by)  REFERENCES users(id) ON DELETE SET NULL
 );
 
 -- ------------------------------------------------------------

@@ -113,5 +113,6 @@ const API = {
   // REPORTS
   weeklyReport:  (params = {})   => apiFetch('reports.php', { action: 'weekly', ...params }),
   submitReport:  (data)          => apiFetch('reports.php', { action: 'submit' }, { method: 'POST', body: JSON.stringify(data) }),
+  reportApprove: (report_id)     => apiFetch('reports.php', { action: 'approve' }, { method: 'POST', body: JSON.stringify({ report_id }) }),
   reportList:    (params = {})   => apiFetch('reports.php', { action: 'list', ...params }),
 };

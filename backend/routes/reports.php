@@ -33,6 +33,24 @@ function normalizeReportRange(string $weekStart, string $weekEnd): array {
     return [$weekStart, $weekEnd];
 }
 
+function reportColumnExists(PDO $db, string $table, string $column): bool {
+    $stmt = $db->prepare(
+        'SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?'
+    );
+    $stmt->execute([DB_NAME, $table, $column]);
+    return (int)$stmt->fetchColumn() > 0;
+}
+
+function ensureWeeklyReportReviewSupport(PDO $db): void {
+    if (!reportColumnExists($db, 'weekly_reports', 'approved_by')) {
+        $db->exec('ALTER TABLE weekly_reports ADD COLUMN approved_by INT NULL AFTER status');
+    }
+    if (!reportColumnExists($db, 'weekly_reports', 'approved_at')) {
+        $db->exec('ALTER TABLE weekly_reports ADD COLUMN approved_at DATETIME NULL AFTER approved_by');
+    }
+}
+
 function weeklyFromDailyEntries(PDO $db, ?string $bid, string $weekStart, string $weekEnd): ?array {
     if (!$bid) return null;
 
@@ -157,6 +175,8 @@ function weeklyFromDailyEntries(PDO $db, ?string $bid, string $weekStart, string
         'daily' => $daily,
     ];
 }
+
+ensureWeeklyReportReviewSupport($db);
 
 switch ($action) {
 
@@ -302,15 +322,45 @@ switch ($action) {
         }
         $whereSql = $where ? 'WHERE '.implode(' AND ', $where) : '';
         $stmt = $db->prepare(
-            "SELECT r.*, b.name AS branch_name, u.name AS submitted_by_name
+            "SELECT r.*, b.name AS branch_name, u.name AS submitted_by_name,
+                    au.name AS approved_by_name
              FROM weekly_reports r
              LEFT JOIN branches b ON b.id = r.branch_id
              LEFT JOIN users    u ON u.id = r.submitted_by
+             LEFT JOIN users   au ON au.id = r.approved_by
              $whereSql
-             ORDER BY r.submitted_at DESC, r.id DESC LIMIT 50"
+             ORDER BY FIELD(r.status, 'submitted', 'draft', 'approved'), r.submitted_at DESC, r.id DESC LIMIT 50"
         );
         $stmt->execute($params);
         jsonSuccess($stmt->fetchAll());
+    }
+
+    case 'approve': {
+        requireRole('owner');
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonError('POST required', 405);
+        requireCsrf();
+        $b = getBody();
+        $id = (int)($b['report_id'] ?? $b['id'] ?? 0);
+        if ($id <= 0) jsonError('report_id is required.');
+
+        $stmt = $db->prepare('SELECT id, branch_id, status FROM weekly_reports WHERE id=? LIMIT 1');
+        $stmt->execute([$id]);
+        $report = $stmt->fetch();
+        if (!$report) jsonError('Weekly report not found.', 404);
+        if (!canAccessBranch($db, $user, (string)$report['branch_id'])) jsonError('Access denied.', 403);
+        if (($report['status'] ?? '') === 'approved') {
+            jsonSuccess(['id' => $id, 'status' => 'approved'], 'Weekly report is already approved.');
+        }
+
+        $db->prepare(
+            "UPDATE weekly_reports
+                SET status='approved', approved_by=?, approved_at=NOW()
+              WHERE id=?"
+        )->execute([$user['id'], $id]);
+        auditLog($db, $user, 'weekly_report_approve', 'weekly_report', (string)$id, [
+            'branch_id' => $report['branch_id'],
+        ]);
+        jsonSuccess(['id' => $id, 'status' => 'approved'], 'Weekly report approved.');
     }
 
     default:

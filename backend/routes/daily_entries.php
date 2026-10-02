@@ -252,6 +252,13 @@ function dailyPayloadNumber(array $payload, string $key): float {
     return isset($payload[$key]) && is_numeric($payload[$key]) ? (float)$payload[$key] : 0.0;
 }
 
+function dailyReportDateSql(string $expression): string {
+    $offset = (int)envValue('GREENFUEL_REPORT_TZ_OFFSET_HOURS', '8');
+    if ($offset === 0) return "DATE($expression)";
+    $fn = $offset > 0 ? 'DATE_ADD' : 'DATE_SUB';
+    return 'DATE(' . $fn . '(' . $expression . ', INTERVAL ' . abs($offset) . ' HOUR))';
+}
+
 function dailyExpenseTotal(array $payload): float {
     $total = 0.0;
     for ($i = 0; $i < 8; $i++) {
@@ -269,12 +276,13 @@ function dailyPumpSalesTotal(array $payload): float {
 }
 
 function dailyActualCashFromShiftCounts(PDO $db, string $branchId, string $entryDate): float {
+    $shiftDateSql = dailyReportDateSql('COALESCE(s.end_time, s.start_time)');
     $stmt = $db->prepare(
         "SELECT COALESCE(SUM(cb.amount),0)
          FROM shift_cash_breakdown cb
          INNER JOIN shift_sessions s ON s.id = cb.shift_session_id
          WHERE s.branch_id = ?
-           AND DATE(COALESCE(s.end_time, s.start_time)) = ?
+           AND $shiftDateSql = ?
            AND s.status != 'open'"
     );
     $stmt->execute([$branchId, $entryDate]);
@@ -308,6 +316,8 @@ switch ($action) {
             : activeBranchId($db, $user, $_GET['branch_id'] ?? ($user['branch_id'] ?? null));
         $date = $_GET['date'] ?? date('Y-m-d');
 
+        $shiftDateSql = dailyReportDateSql('COALESCE(s.end_time, s.start_time)');
+        $txDateSql = dailyReportDateSql('`timestamp`');
         $stmt = $db->prepare(
             "SELECT d.id, d.value, d.label,
                     COALESCE(counted.quantity,0) AS cash_quantity,
@@ -324,7 +334,7 @@ switch ($action) {
                FROM shift_cash_breakdown cb
                INNER JOIN shift_sessions s ON s.id = cb.shift_session_id
                WHERE s.branch_id = ?
-                 AND DATE(COALESCE(s.end_time, s.start_time)) = ?
+                 AND $shiftDateSql = ?
                  AND s.status != 'open'
                GROUP BY cb.denomination_id
              ) counted ON counted.denomination_id = d.id
@@ -341,7 +351,7 @@ switch ($action) {
                     COALESCE(SUM(cash_received),0) AS cash_received,
                     COALESCE(SUM(change_amount),0) AS change_total
              FROM transactions
-             WHERE branch_id=? AND DATE(timestamp)=? AND status!='void'"
+             WHERE branch_id=? AND $txDateSql=? AND status!='void'"
         );
         $totalsStmt->execute([$bid, $date]);
         $totals = $totalsStmt->fetch();
@@ -364,7 +374,7 @@ switch ($action) {
              FROM shift_sessions s
              LEFT JOIN users u ON u.id = s.cashier_id
              WHERE s.branch_id = ?
-               AND DATE(COALESCE(s.end_time, s.start_time)) = ?
+               AND $shiftDateSql = ?
                AND s.status != 'open'
                AND s.cashier_note IS NOT NULL
                AND TRIM(s.cashier_note) != ''

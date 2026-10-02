@@ -329,19 +329,39 @@ switch ($action) {
         $shift_id = trim($b['shift_id'] ?? '');
         $status   = trim($b['status']   ?? '');
         $remarks  = trim($b['remarks']  ?? '');
-        if (!$shift_id || !in_array($status, ['Verified'], true))
+        if (!$shift_id || !in_array($status, ['Verified', 'Flagged', 'Recalibrated'], true))
             jsonError('shift_id and valid status required.');
-        $check = $db->prepare('SELECT branch_id FROM shift_records WHERE id=? LIMIT 1');
+        $check = $db->prepare('SELECT branch_id, shift_session_id FROM shift_records WHERE id=? LIMIT 1');
         $check->execute([$shift_id]);
-        $branchId = $check->fetchColumn();
-        if (!$branchId) jsonError('Shift record not found.', 404);
-        if (!canAccessBranch($db, $user, (string)$branchId)) jsonError('Access denied.', 403);
-        $stmt = $db->prepare(
-            'UPDATE shift_records
-             SET status=?, remarks=?, verified_by=?, verified_at=NOW()
-             WHERE id=?'
-        );
-        $stmt->execute([$status, $remarks ?: null, $user['id'], $shift_id]);
+        $record = $check->fetch();
+        if (!$record) jsonError('Shift record not found.', 404);
+        if (!canAccessBranch($db, $user, (string)$record['branch_id'])) jsonError('Access denied.', 403);
+        $txStatus = [
+            'Verified' => 'verified',
+            'Flagged' => 'flagged',
+            'Recalibrated' => 'recalibrated',
+        ][$status];
+        $db->beginTransaction();
+        try {
+            $stmt = $db->prepare(
+                'UPDATE shift_records
+                 SET status=?, remarks=?, verified_by=?, verified_at=NOW()
+                 WHERE id=?'
+            );
+            $stmt->execute([$status, $remarks ?: null, $user['id'], $shift_id]);
+            if (!empty($record['shift_session_id'])) {
+                $db->prepare(
+                    "UPDATE transactions
+                        SET status=?
+                      WHERE shift_session_id=?
+                        AND status != 'void'"
+                )->execute([$txStatus, (int)$record['shift_session_id']]);
+            }
+            $db->commit();
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            throw $e;
+        }
         auditLog($db, $user, 'shift_verify', 'shift_record', $shift_id, ['status' => $status]);
         jsonSuccess(null, 'Shift '.$status.'.');
     }

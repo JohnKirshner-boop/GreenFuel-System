@@ -366,6 +366,7 @@ const NAV = {
     { label: 'Dashboard',          page: 'page-mgr-dash',     icon: 'M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z' },
     { label: 'Cashier Accounts',   page: 'page-user-roles',   icon: 'M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5C15 14.17 10.33 13 8 13zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z' },
     { label: 'Daily Entry',        page: 'page-daily-entry',  icon: 'M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 14H7v-2h10v2zm0-4H7v-2h10v2z' },
+    { label: 'POS Approval',        page: 'page-verification', icon: 'M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z' },
     { label: 'Records Log',        page: 'page-records',      icon: 'M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z' },
     { label: 'Weekly Reports',     page: 'page-weekly',       icon: 'M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z' },
     { label: 'Fuel Prices',        page: 'page-fuel-prices',  icon: 'M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm1 17h-2v-2h2v2zm0-4h-2V6h2v8z' },
@@ -543,8 +544,8 @@ function notificationPanelHTML() {
         <span>${gfNotifications.length}</span>
       </div>
       <div class="notification-list notification-popover-list">
-        ${gfNotifications.length ? gfNotifications.map(item => `
-          <button class="notification-item ${gfEscape(item.tone)}" type="button" onclick="openNotificationTarget('${gfEscape(item.page)}')">
+        ${gfNotifications.length ? gfNotifications.map((item, i) => `
+          <button class="notification-item ${gfEscape(item.tone)}" type="button" onclick="openNotificationTargetByIndex(${i})">
             <span class="notification-dot"></span>
             <span class="notification-copy">
               <b>${gfEscape(item.title)}</b>
@@ -564,23 +565,24 @@ function notificationPanelHTML() {
     </div>`;
 }
 
-function notificationItem(title, body, page, tone = 'info', meta = '') {
-  return { title, body, page, tone, meta };
+function notificationItem(title, body, page, tone = 'info', meta = '', extra = {}) {
+  return { title, body, page, tone, meta, ...extra };
 }
 
 async function ownerNotifications() {
   const reports = await API.reportList().catch(() => []);
   const items = [];
   const pendingReports = reports.filter(r => String(r.status || '').toLowerCase() === 'submitted');
-  if (pendingReports.length) {
+  pendingReports.forEach(report => {
     items.push(notificationItem(
-      'Weekly reports need review',
-      `${pendingReports.length} submitted weekly report${pendingReports.length === 1 ? '' : 's'} from branches are waiting in Analytics & Reports.`,
-      'page-analytics',
+      'Weekly report needs review',
+      `${report.branch_name || 'A branch'} submitted a weekly report. Open the branch Weekly Reports tab to approve it.`,
+      'page-branches',
       'warn',
-      pendingReports[0]?.submitted_at ? `Latest: ${fmtDT(pendingReports[0].submitted_at)}` : ''
+      `${report.week_start || ''} - ${report.week_end || ''}`.trim() || (report.submitted_at ? `Submitted: ${fmtDT(report.submitted_at)}` : ''),
+      { branch_id: report.branch_id, report_id: report.id, target_tab: 'branch-weekly-report' }
     ));
-  }
+  });
   return items;
 }
 
@@ -659,13 +661,39 @@ function closeNotificationsPanel() {
   renderNotificationShell();
 }
 
-function openNotificationTarget(page) {
+function openNotificationTargetByIndex(index) {
+  const item = gfNotifications[index];
+  if (!item) return;
+  openNotificationTarget(item.page, item);
+}
+
+async function openNotificationTarget(page, item = {}) {
   closeNotificationsPanel();
   const navBtn = document.querySelector(`.nav-item[data-page="${page}"]`);
   document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
   document.querySelector('.account-trigger')?.classList.remove('active');
   if (navBtn) navBtn.classList.add('active');
+  if (page === 'page-branches' && item.branch_id && typeof showBranchDetail === 'function') {
+    await showBranchDetail(item.branch_id);
+    if (item.target_tab === 'branch-weekly-report') {
+      activateBranchWeeklyReportTab();
+      await refreshBranchWeeklyReports(item.branch_id, true);
+      const idx = gfBranchWeeklyReports.findIndex(r => String(r.id) === String(item.report_id));
+      if (idx >= 0) showBranchWeeklyReportDetail(idx);
+    }
+    return;
+  }
   loadPage(page);
+}
+
+function activateBranchWeeklyReportTab() {
+  const pane = document.getElementById('branch-weekly-report');
+  if (!pane) return;
+  document.querySelectorAll('#page-branches .tab-pane').forEach(tab => tab.classList.remove('active'));
+  pane.classList.add('active');
+  document.querySelectorAll('#page-branches .tab-btn').forEach(btn => {
+    btn.classList.toggle('active', (btn.getAttribute('onclick') || '').includes('branch-weekly-report'));
+  });
 }
 
 function openNotifications() {
@@ -3510,14 +3538,22 @@ async function showBranchDetail(branchId) {
   } catch(e) { showToast(e.message, 'error'); }
 }
 
-function renderOwnerWeeklyReport(branch, weekly, fuels, entries) {
+function renderOwnerWeeklyReport(branch, weekly, fuels, entries, report = null) {
   const totals = weekly?.totals || {};
   const sales = safeNum(totals.total_sales || branch.revenue);
   const expenses = safeNum(totals.total_expenses);
   const net = sales - expenses;
   const weeklyDailyRows = weekly?.daily?.length ? weekly.daily : entries;
+  const reportStatus = String(report?.status || weekly?.submitted_report?.status || 'submitted').toLowerCase();
+  const reportId = report?.id || weekly?.submitted_report?.id || '';
+  const approvedText = report?.approved_at ? `Approved ${fmtDT(report.approved_at)}` : 'Approved';
   return `<div class="gf-report">
-    <div class="gf-report-actions"><button class="btn-outline" onclick="window.print()">Print Report</button><button class="btn-green" onclick="showToast('Weekly report approved')">Approve Report</button></div>
+    <div class="gf-report-actions">
+      <button class="btn-outline" onclick="window.print()">Print Report</button>
+      ${reportStatus === 'approved'
+        ? `<button class="btn-outline" disabled>${approvedText}</button>`
+        : `<button class="btn-green" onclick="approveWeeklyReport(${Number(reportId)})">Approve Report</button>`}
+    </div>
     <div class="gf-stat-grid three">${gfCard('Total Weekly Sales', fmt(sales))}${gfCard('Total Expenses', fmt(expenses))}${gfCard('Net Sales', fmt(net), '', 'dark')}</div>
     <div class="gf-two-col">
       <div class="gf-card"><h3>Sales Breakdown by Fuel Type</h3><p>Consolidated volume and amount for the week.</p>${weeklyFuelTable(fuels, sales)}</div>
@@ -3614,6 +3650,23 @@ async function showBranchWeeklyReportDetail(index) {
     target.innerHTML = `<div class="gf-card"><p class="loading">${gfEscape(e.message || 'Could not load submitted report.')}</p></div>`;
   }
   target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function approveWeeklyReport(reportId) {
+  if (!reportId) {
+    showToast('Weekly report id is missing.', 'error');
+    return;
+  }
+  try {
+    await API.reportApprove(reportId);
+    showToast('Weekly report approved.');
+    await refreshBranchWeeklyReports(gfSelectedBranch, true);
+    await refreshNotifications();
+    const idx = gfBranchWeeklyReports.findIndex(r => Number(r.id) === Number(reportId));
+    if (idx >= 0) showBranchWeeklyReportDetail(idx);
+  } catch(e) {
+    showToast(e.message || 'Could not approve weekly report.', 'error');
+  }
 }
 
 function weeklyFuelTable(fuels, totalSales = 0) {
@@ -3941,7 +3994,7 @@ async function refreshRecordsPosTransactions() {
 
 async function initVerification() {
   const page = 'page-verification';
-  gfPageShell(page, 'Shift Verification & Calibration', 'Review Daily Shift Sales Records from POS before consolidation.', `<div class="gf-card">${loadingHTML}</div>`);
+  gfPageShell(page, 'POS Transaction Approval', 'Review cashier POS shift records before daily entry consolidation.', `<div class="gf-card">${loadingHTML}</div>`);
   try {
     const [pending, history, txs] = await Promise.all([
       API.shiftsPending(currentUser.branch_id),
@@ -3951,20 +4004,20 @@ async function initVerification() {
     window.gfPendingShifts = pending;
     window.gfHistoryShifts = history;
     window.gfShiftTxs = txs;
-    gfPageShell(page, 'Shift Verification & Calibration', 'Review Daily Shift Sales Records from POS before consolidation.',
-      `<div class="gf-alert gf-alert-info"><strong>Data Flow Note:</strong><span>POS data is held in Pending state until verified here. Only Verified or Recalibrated records are used for Daily/Weekly Reports and Owner Analytics.</span></div>
+    gfPageShell(page, 'POS Transaction Approval', 'Review cashier POS shift records before daily entry consolidation.',
+      `<div class="gf-alert gf-alert-info"><strong>Review Queue</strong><span>Cashier shift records appear here after the cashier ends a shift. Approving a record marks its POS transactions as verified.</span></div>
        <div class="tab-bar">
          <button class="tab-btn active" onclick="switchTab(this,'cal-pending')">Pending Review <span class="badge badge-red">${pending.length}</span></button>
          <button class="tab-btn" onclick="switchTab(this,'cal-history')">Verification History</button>
        </div>
        <div class="tab-pane active" id="cal-pending">
-         <div class="gf-card"><h3>Pending Shift Records</h3><p>Records waiting for manager verification.</p>
+         <div class="gf-card"><h3>Pending POS Shift Records</h3><p>Records waiting for manager approval.</p>
          <table><thead><tr><th>Record ID</th><th>Date & Shift</th><th>Cashier</th><th class="td-right">Total Sales</th><th>Status</th><th class="td-right">Action</th></tr></thead><tbody>
-         ${pending.map((r, i) => `<tr><td>${r.id}</td><td><b>${r.date}</b><br><small>${r.shift}</small></td><td>${r.cashier_name || '-'}</td><td class="td-right">${fmt(r.total_sales)}</td><td><span class="badge badge-amber">Pending Verification</span></td><td class="td-right"><button class="btn-green btn-sm" onclick="openVerifyModal(${i})">Review & Verify</button></td></tr>`).join('') || '<tr><td colspan="6" class="td-center">No pending records</td></tr>'}
+         ${pending.map((r, i) => `<tr><td>${r.id}</td><td><b>${r.date}</b><br><small>${r.shift}</small></td><td>${r.cashier_name || '-'}</td><td class="td-right">${fmt(r.total_sales)}</td><td><span class="badge badge-amber">Pending Approval</span></td><td class="td-right"><button class="btn-green btn-sm" onclick="openVerifyModal(${i})">Review & Approve</button></td></tr>`).join('') || '<tr><td colspan="6" class="td-center">No pending records</td></tr>'}
          </tbody></table></div>
        </div>
        <div class="tab-pane" id="cal-history">
-         <div class="gf-card"><h3>Verification Logs</h3><p>History of approved and flagged shift records.</p>
+         <div class="gf-card"><h3>Approval Logs</h3><p>History of approved and flagged POS shift records.</p>
          <table><thead><tr><th>Record ID</th><th>Date & Shift</th><th>Cashier</th><th class="td-right">Total Sales</th><th>Status</th><th class="td-right">Action</th></tr></thead><tbody>
          ${history.map((r, i) => `<tr><td>${r.id}</td><td><b>${r.date}</b><br><small>${r.shift}</small></td><td>${r.cashier_name || '-'}</td><td class="td-right">${fmt(r.total_sales)}</td><td><span class="badge ${r.status === 'Verified' ? 'badge-green' : 'badge-blue'}">${r.status}</span></td><td class="td-right"><button class="btn-outline btn-sm" onclick="openHistoryModal(${i})">View</button></td></tr>`).join('') || '<tr><td colspan="6" class="td-center">No verification history yet</td></tr>'}
          </tbody></table></div>
@@ -3975,7 +4028,15 @@ async function initVerification() {
 
 function shiftTransactionsFor(record) {
   const day = record.date;
-  return (window.gfShiftTxs || []).filter(t => !day || String(t.timestamp).slice(0, 10) === day);
+  const sessionId = String(record.shift_session_id || '');
+  const branchId = String(record.branch_id || '');
+  const cashierId = String(record.cashier_id || '');
+  return (window.gfShiftTxs || []).filter(t => {
+    if (sessionId && String(t.shift_session_id || '') !== sessionId) return false;
+    if (!sessionId && branchId && String(t.branch_id || '') !== branchId) return false;
+    if (!sessionId && cashierId && String(t.cashier_id || '') !== cashierId) return false;
+    return !day || String(t.timestamp).slice(0, 10) === day;
+  });
 }
 
 function openVerifyModal(index) {
@@ -4000,8 +4061,8 @@ function verifyModalHTML(r, txs, history) {
   return `<div class="gf-modal-backdrop">
     <div class="gf-modal wide">
       <button class="gf-modal-x" onclick="closeGfModal()">×</button>
-      <h2>${history ? 'Shift Record' : 'Verify Shift Record'} - ${r.id} <span class="badge ${r.status === 'Verified' ? 'badge-green' : 'badge-blue'}">${r.status}</span></h2>
-      <p>Compare POS totals with expected values and assign a status.</p>
+      <h2>${history ? 'POS Shift Record' : 'Approve POS Shift Record'} - ${r.id} <span class="badge ${r.status === 'Verified' ? 'badge-green' : 'badge-blue'}">${r.status}</span></h2>
+      <p>Compare the cashier shift total with the POS transaction log before approving.</p>
       <div class="gf-modal-grid">
         <div>
           <div class="tab-bar"><button class="tab-btn active" onclick="switchTab(this,'verify-summary')">Summary & Readings</button><button class="tab-btn" onclick="switchTab(this,'verify-tx')">Transaction Log</button></div>
@@ -4013,14 +4074,13 @@ function verifyModalHTML(r, txs, history) {
           <div class="tab-pane" id="verify-tx"><table><thead><tr><th>Time</th><th>Product</th><th class="td-right">Liters</th><th class="td-right">Amount</th></tr></thead><tbody>${txs.slice(0, 12).map(t => `<tr><td>${new Date(t.timestamp).toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'})}</td><td>${t.fuel_name}</td><td class="td-right">${fmtL(t.liters)}</td><td class="td-right">${fmt(t.total_amount)}</td></tr>`).join('') || '<tr><td colspan="4" class="td-center">No transactions found</td></tr>'}</tbody></table></div>
         </div>
         <div>
-          <h3>Verification Status</h3>
-          <label class="gf-radio"><input type="radio" name="verify-status" value="Verified" checked><span><b>Verified</b><small>Data matches expected values.</small></span></label>
-          <label class="gf-radio"><input type="radio" name="verify-status" value="Recalibrated"><span><b>Recalibrated</b><small>Minor variance adjusted via calibration.</small></span></label>
-          <label class="gf-radio danger"><input type="radio" name="verify-status" value="Flagged"><span><b>Flag for Review</b><small>Hold record for audit.</small></span></label>
-          <label class="gf-remarks">Manager Remarks<textarea id="verify-remarks" placeholder="Add notes about this verification...">${r.remarks || ''}</textarea></label>
+          <h3>Approval Status</h3>
+          <label class="gf-radio"><input type="radio" name="verify-status" value="Verified" checked><span><b>Approve</b><small>Cashier POS totals are accepted.</small></span></label>
+          <label class="gf-radio danger"><input type="radio" name="verify-status" value="Flagged"><span><b>Flag for Review</b><small>Hold record for correction or audit.</small></span></label>
+          <label class="gf-remarks">Manager Remarks<textarea id="verify-remarks" placeholder="Add approval notes or explain why the record is flagged...">${r.remarks || ''}</textarea></label>
         </div>
       </div>
-      <div class="gf-modal-actions"><button class="btn-outline" onclick="closeGfModal()">Cancel</button>${history ? '<button class="btn-green" onclick="closeGfModal()">Close</button>' : `<button class="btn-green" onclick="confirmShiftVerify('${r.id}')">Confirm Verify</button>`}</div>
+      <div class="gf-modal-actions"><button class="btn-outline" onclick="closeGfModal()">Cancel</button>${history ? '<button class="btn-green" onclick="closeGfModal()">Close</button>' : `<button class="btn-green" onclick="confirmShiftVerify('${r.id}')">Confirm Status</button>`}</div>
     </div>
   </div>`;
 }
