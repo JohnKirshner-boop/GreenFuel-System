@@ -2232,6 +2232,7 @@ let gfRecordTxCache = [];
 let gfWeeklyRange = null;
 let gfUserCache = [];
 let gfUserBranches = [];
+let gfUserAccountFilter = 'pending';
 let gfPriceRequests = [];
 let gfComparisonMonth = '';
 let gfComparisonWeek = 0;
@@ -2584,8 +2585,13 @@ function userRoleBadge(role) {
   return { owner: 'badge-blue', manager: 'badge-green', cashier: 'badge-amber' }[role] || 'badge-gray';
 }
 
-function userAccountStatusBadge(status) {
+function userAccountStatusKey(status) {
   const key = String(status || 'active').toLowerCase();
+  return ['pending', 'active', 'deactivated'].includes(key) ? key : 'active';
+}
+
+function userAccountStatusBadge(status) {
+  const key = userAccountStatusKey(status);
   return {
     active: 'badge-green',
     pending: 'badge-amber',
@@ -2594,12 +2600,31 @@ function userAccountStatusBadge(status) {
 }
 
 function userAccountStatusLabel(status) {
-  const key = String(status || 'active').toLowerCase();
+  const key = userAccountStatusKey(status);
   return { active: 'Active', pending: 'Pending Activation', deactivated: 'Deactivated' }[key] || 'Active';
 }
 
+function userAccountFilterTabs(counts) {
+  const tabs = [
+    { key: 'pending', label: 'Pending', helper: 'Activation Links', count: counts.pending },
+    { key: 'active', label: 'Active', helper: 'Reset Links', count: counts.active },
+    { key: 'deactivated', label: 'Deactivated', helper: 'No Access', count: counts.deactivated },
+  ];
+  return `<div class="account-status-tabs">${tabs.map(tab => `
+    <button type="button" class="${gfUserAccountFilter === tab.key ? 'active' : ''}" onclick="setUserAccountFilter('${tab.key}')">
+      <span>${tab.count}</span>
+      <b>${tab.label}</b>
+      <small>${tab.helper}</small>
+    </button>`).join('')}</div>`;
+}
+
+function setUserAccountFilter(filter) {
+  gfUserAccountFilter = userAccountStatusKey(filter);
+  renderUserRoles();
+}
+
 function userAccountActionButtons(user) {
-  const status = String(user.account_status || 'active').toLowerCase();
+  const status = userAccountStatusKey(user.account_status);
   const isOwnerAccount = user.role === 'owner';
   const activateLabel = status === 'active' ? 'Send Reset Link' : 'Activate & Send Link';
   const activateBtn = isOwnerAccount
@@ -2757,9 +2782,21 @@ function renderUserRoles() {
     owner: gfUserCache.filter(u => u.role === 'owner').length,
     manager: gfUserCache.filter(u => u.role === 'manager').length,
     cashier: gfUserCache.filter(u => u.role === 'cashier').length,
-    pending: gfUserCache.filter(u => String(u.account_status || 'active') === 'pending').length,
-    active: gfUserCache.filter(u => String(u.account_status || 'active') === 'active').length,
-    deactivated: gfUserCache.filter(u => String(u.account_status || 'active') === 'deactivated').length,
+    pending: gfUserCache.filter(u => userAccountStatusKey(u.account_status) === 'pending').length,
+    active: gfUserCache.filter(u => userAccountStatusKey(u.account_status) === 'active').length,
+    deactivated: gfUserCache.filter(u => userAccountStatusKey(u.account_status) === 'deactivated').length,
+  };
+  gfUserAccountFilter = userAccountStatusKey(gfUserAccountFilter);
+  const filteredUsers = gfUserCache.filter(u => userAccountStatusKey(u.account_status) === gfUserAccountFilter);
+  const filterHelp = {
+    pending: managerMode ? 'Activate cashier accounts here, then the cashier can set their own password privately.' : 'Activate newly created staff accounts here, then they can set their own password privately.',
+    active: 'Active accounts are where you send password reset links or deactivate access when needed.',
+    deactivated: 'Deactivated accounts cannot sign in. You can reactivate them by sending a new setup link.',
+  };
+  const emptyLabel = {
+    pending: 'No pending accounts found',
+    active: 'No active accounts found',
+    deactivated: 'No deactivated accounts found',
   };
   const statsHtml = managerMode
     ? `<div class="gf-stat-grid three user-role-stats">
@@ -2814,11 +2851,13 @@ function renderUserRoles() {
          </form>
        </div>
        <div class="gf-card">
-         <div class="gf-card-head"><div><h3>${managerMode ? 'Branch Cashiers' : 'Account Activation List'}</h3><p>${managerMode ? 'Activate, deactivate, or update cashier access.' : 'Activate pending accounts and send setup links without handling passwords.'}</p></div></div>
+         <div class="gf-card-head"><div><h3>${managerMode ? 'Branch Cashiers' : 'Account Controls'}</h3><p>${managerMode ? 'Activate, reset, deactivate, or update cashier access.' : 'Keep activation, reset links, and deactivated accounts separated.'}</p></div></div>
+         ${userAccountFilterTabs(counts)}
+         <p class="account-status-tab-help">${filterHelp[gfUserAccountFilter]}</p>
          <div class="tbl-wrap">
            <table>
              <thead><tr><th>Name</th><th>Email</th><th>Position</th><th>Branch Access</th><th>Status</th><th class="td-right">Action</th></tr></thead>
-             <tbody>${gfUserCache.map(u => `
+             <tbody>${filteredUsers.map(u => `
                <tr>
                  <td><b>${gfEscape(u.name)}</b></td>
                  <td class="mono">${gfEscape(u.email || u.username)}</td>
@@ -2826,7 +2865,7 @@ function renderUserRoles() {
                  <td>${userRoleBranchSummary(u)}</td>
                  <td><span class="badge ${userAccountStatusBadge(u.account_status)}">${userAccountStatusLabel(u.account_status)}</span>${u.activated_at ? `<br><small>Activated ${fmtDT(u.activated_at)}</small>` : ''}</td>
                  <td class="td-right">${userAccountActionButtons(u)}</td>
-               </tr>`).join('') || '<tr><td colspan="6" class="td-center">No users found</td></tr>'}
+               </tr>`).join('') || `<tr><td colspan="6" class="td-center">${emptyLabel[gfUserAccountFilter]}</td></tr>`}
              </tbody>
            </table>
          </div>
@@ -2890,6 +2929,7 @@ async function submitUserRole(event) {
     const result = await API.userSave(data);
     showToast(id ? (managerMode ? 'Cashier account updated.' : 'User assignment updated.') : (managerMode ? 'Cashier account saved as pending.' : 'Staff account saved as pending.'));
     gfUserCache = await API.users();
+    if (!id) gfUserAccountFilter = 'pending';
     renderUserRoles();
   } catch(e) {
     showToast(e.message, 'error');
@@ -2904,7 +2944,7 @@ async function submitUserRole(event) {
 async function activateUserAccount(id) {
   const user = gfUserCache.find(u => Number(u.id) === Number(id));
   if (!user) return;
-  const status = String(user.account_status || 'active').toLowerCase();
+  const status = userAccountStatusKey(user.account_status);
   const actionText = status === 'active' ? 'send a password reset link to' : 'activate and send a password setup link to';
   if (!confirm(`Do you want to ${actionText} ${user.name}?`)) return;
   try {
@@ -2912,6 +2952,7 @@ async function activateUserAccount(id) {
     showToast(result?.mail_sent ? 'Password setup link sent.' : 'Account updated. Email is not configured on this server.', result?.mail_sent ? 'ok' : 'warn');
     openAccountSetupLinkModal(result, status === 'active' ? 'reset' : 'activation');
     gfUserCache = await API.users();
+    if (status !== 'active') gfUserAccountFilter = 'active';
     renderUserRoles();
   } catch (e) {
     showToast(e.message || 'Could not activate account.', 'error');
@@ -2926,6 +2967,7 @@ async function deactivateUserAccount(id) {
     await API.userDeactivate(id);
     showToast('Account deactivated.');
     gfUserCache = await API.users();
+    gfUserAccountFilter = 'deactivated';
     renderUserRoles();
   } catch (e) {
     showToast(e.message || 'Could not deactivate account.', 'error');
@@ -3620,8 +3662,11 @@ async function initRecords() {
   gfPageShell(page, 'Daily Records Log', 'Review submitted manager documents and POS terminal transactions.', `<div class="gf-card">${loadingHTML}</div>`);
   try {
     const [entries, txs, fuels] = await Promise.all([
-      API.dailyEntries({ branch_id: currentUser.branch_id }).catch(() => []),
-      API.txList({ branch_id: currentUser.branch_id, limit: 500 }).catch(() => []),
+      API.dailyEntries(currentBranchQuery()).catch(() => []),
+      API.txList(currentBranchQuery({ limit: 500 })).catch((e) => {
+        showToast(e.message || 'Could not load POS transactions.', 'error');
+        return [];
+      }),
       API.fuels().catch(() => allFuels),
     ]);
     if (fuels && fuels.length) allFuels = fuels;
@@ -3648,7 +3693,7 @@ async function initRecords() {
             <div class="gf-card-head">
               <div><h3>POS Daily Transactions</h3><p>Cashier transactions entered through the POS terminal.</p></div>
               <div class="gf-filter-row records-pos-filters">
-                <input id="pos-record-date" type="date" value="${gfToday()}" onchange="renderPosRecordsFiltered()">
+                <input id="pos-record-date" type="date" onchange="renderPosRecordsFiltered()">
                 <select id="pos-record-fuel" onchange="renderPosRecordsFiltered()">
                   <option value="">All Fuel</option>
                   ${allFuels.map(f => `<option value="${f.id}">${gfFuelName(f)}</option>`).join('')}
@@ -3708,6 +3753,12 @@ function posRecordStatusBadge(status) {
 
 function isVoidTx(tx) {
   return String(tx.status || '').toLowerCase() === 'void';
+}
+
+function currentBranchQuery(extra = {}) {
+  const params = { ...extra };
+  if (currentUser?.branch_id) params.branch_id = currentUser.branch_id;
+  return params;
 }
 
 function renderPosRecordsFiltered() {
@@ -3808,7 +3859,7 @@ function clearPosRecordFilters() {
 
 async function refreshRecordsPosTransactions() {
   try {
-    gfRecordTxCache = await API.txList({ branch_id: currentUser.branch_id, limit: 500 });
+    gfRecordTxCache = await API.txList(currentBranchQuery({ limit: 500 }));
     renderPosRecordsFiltered();
   } catch(e) {
     showToast(e.message, 'error');

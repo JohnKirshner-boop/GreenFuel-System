@@ -7,7 +7,10 @@ let GREENFUEL_CSRF_TOKEN = null;
 
 async function apiFetch(route, params = {}, options = {}) {
   const url = new URL(`${BASE_URL}/${route}`, window.location.href);
-  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  Object.entries(params).forEach(([k, v]) => {
+    if (v === null || v === undefined || v === '') return;
+    url.searchParams.set(k, v);
+  });
   const method = (options.method || 'GET').toUpperCase();
   const headers = {
     'Content-Type': 'application/json',
