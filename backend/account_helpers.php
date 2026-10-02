@@ -272,12 +272,12 @@ function gfSmtpSendEmail(string $toEmail, string $toName, string $subject, strin
         $safeSubject = gfMailCleanHeader($subject);
         $headers = [
             'Date: ' . date('r'),
-            'From: ' . gfMailAddress($fromEmail, $fromName),
-            'To: ' . gfMailAddress($toEmail, $toName),
+            'From: ' . gfMailCleanHeader($fromEmail),
+            'To: ' . gfMailCleanHeader($toEmail),
             'Subject: ' . $safeSubject,
             'MIME-Version: 1.0',
-            'Content-Type: text/plain; charset=UTF-8',
-            'Content-Transfer-Encoding: 8bit',
+            'Content-Type: text/plain; charset=US-ASCII',
+            'Content-Transfer-Encoding: 7bit',
         ];
         $message = implode("\r\n", $headers) . "\r\n\r\n" . str_replace(["\r\n", "\r"], "\n", $body);
         $message = str_replace("\n", "\r\n", $message);
