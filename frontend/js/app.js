@@ -366,7 +366,6 @@ const NAV = {
     { label: 'Dashboard',          page: 'page-mgr-dash',     icon: 'M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z' },
     { label: 'Cashier Accounts',   page: 'page-user-roles',   icon: 'M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5C15 14.17 10.33 13 8 13zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z' },
     { label: 'Daily Entry',        page: 'page-daily-entry',  icon: 'M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 14H7v-2h10v2zm0-4H7v-2h10v2z' },
-    { label: 'POS Approval',        page: 'page-verification', icon: 'M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z' },
     { label: 'Records Log',        page: 'page-records',      icon: 'M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z' },
     { label: 'Weekly Reports',     page: 'page-weekly',       icon: 'M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z' },
     { label: 'Fuel Prices',        page: 'page-fuel-prices',  icon: 'M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm1 17h-2v-2h2v2zm0-4h-2V6h2v8z' },
@@ -3787,22 +3786,29 @@ async function initRecords() {
   const page = 'page-records';
   gfPageShell(page, 'Daily Records Log', 'Review submitted manager documents and POS terminal transactions.', `<div class="gf-card">${loadingHTML}</div>`);
   try {
-    const [entries, txs, fuels] = await Promise.all([
+    const branchId = currentUser.branch_id || '';
+    const [entries, txs, fuels, pendingShifts, historyShifts] = await Promise.all([
       API.dailyEntries(currentBranchQuery()).catch(() => []),
       API.txList(currentBranchQuery({ limit: 500 })).catch((e) => {
         showToast(e.message || 'Could not load POS transactions.', 'error');
         return [];
       }),
       API.fuels().catch(() => allFuels),
+      API.shiftsPending(branchId).catch(() => []),
+      API.shiftsHistory(branchId).catch(() => []),
     ]);
     if (fuels && fuels.length) allFuels = fuels;
     dailyEntryCache = entries;
     gfRecordTxCache = txs;
+    window.gfPendingShifts = pendingShifts;
+    window.gfHistoryShifts = historyShifts;
+    window.gfShiftTxs = txs;
     gfPageShell(page, 'Daily Records Log', 'Review submitted manager documents and POS terminal transactions.',
       `<div class="gf-record-tabs">
         <div class="tab-bar">
           <button class="tab-btn active" onclick="switchTab(this,'records-daily-entries')">Daily Entries</button>
           <button class="tab-btn" onclick="switchTab(this,'records-pos-transactions')">POS Transactions</button>
+          <button class="tab-btn" onclick="switchTab(this,'records-pos-approvals')">POS Approvals <span class="badge badge-red" id="records-pos-approval-count">${pendingShifts.length}</span></button>
         </div>
         <div class="tab-pane active" id="records-daily-entries">
           <div class="gf-card">
@@ -3837,6 +3843,9 @@ async function initRecords() {
             <div class="gf-auto-summary records-pos-summary" id="records-pos-summary"></div>
             <div id="records-pos-table" class="tbl-wrap"></div>
           </div>
+        </div>
+        <div class="tab-pane" id="records-pos-approvals">
+          ${renderRecordsPosApprovals(pendingShifts, historyShifts)}
         </div>
       </div>
       <div id="gf-modal-root"></div>`);
@@ -3937,10 +3946,23 @@ function renderPosRecordsFiltered() {
   </tbody></table>`;
 }
 
+function gfModalRoot() {
+  let root = document.getElementById('gf-modal-root') || document.getElementById('gf-global-modal-root');
+  if (!root) {
+    root = document.createElement('div');
+    root.id = 'gf-modal-root';
+    document.body.appendChild(root);
+  }
+  return root;
+}
+
 function showPosTransactionDetail(txId) {
   const tx = gfRecordTxCache.find(t => String(t.id) === String(txId));
-  const root = document.getElementById('gf-modal-root');
-  if (!tx || !root) return;
+  const root = gfModalRoot();
+  if (!tx) {
+    showToast('Transaction record not found.', 'error');
+    return;
+  }
   root.innerHTML = `
     <div class="gf-modal-backdrop">
       <div class="gf-modal">
@@ -3986,9 +4008,70 @@ function clearPosRecordFilters() {
 async function refreshRecordsPosTransactions() {
   try {
     gfRecordTxCache = await API.txList(currentBranchQuery({ limit: 500 }));
+    window.gfShiftTxs = gfRecordTxCache;
     renderPosRecordsFiltered();
   } catch(e) {
     showToast(e.message, 'error');
+  }
+}
+
+function renderRecordsPosApprovals(pending = window.gfPendingShifts || [], history = window.gfHistoryShifts || []) {
+  const pendingRows = pending.map((r, i) => `<tr>
+    <td class="mono">${gfEscape(r.id)}</td>
+    <td><b>${gfEscape(r.date || '-')}</b><br><small>${gfEscape(r.shift || '-')}</small></td>
+    <td>${gfEscape(r.cashier_name || '-')}</td>
+    <td>${gfEscape(r.branch_name || currentUser.branch_name || '-')}</td>
+    <td class="td-right">${fmt(r.total_sales)}</td>
+    <td><span class="badge badge-amber">Pending Approval</span></td>
+    <td class="td-right"><button class="btn-green btn-sm" onclick="openVerifyModal(${i})">Review & Approve</button></td>
+  </tr>`).join('');
+  const historyRows = history.map((r, i) => `<tr>
+    <td class="mono">${gfEscape(r.id)}</td>
+    <td><b>${gfEscape(r.date || '-')}</b><br><small>${gfEscape(r.shift || '-')}</small></td>
+    <td>${gfEscape(r.cashier_name || '-')}</td>
+    <td>${gfEscape(r.branch_name || currentUser.branch_name || '-')}</td>
+    <td class="td-right">${fmt(r.total_sales)}</td>
+    <td><span class="badge ${r.status === 'Verified' ? 'badge-green' : 'badge-blue'}">${gfEscape(r.status || '-')}</span></td>
+    <td class="td-right"><button class="btn-outline btn-sm" onclick="openHistoryModal(${i})">View</button></td>
+  </tr>`).join('');
+  return `<div class="gf-card">
+      <div class="gf-card-head">
+        <div><h3>Pending POS Approvals</h3><p>Cashier shift records waiting for manager review.</p></div>
+        <button type="button" class="btn-outline btn-sm" onclick="refreshRecordsPosApprovals()">Refresh</button>
+      </div>
+      <table><thead><tr><th>Record ID</th><th>Date & Shift</th><th>Cashier</th><th>Branch</th><th class="td-right">Total Sales</th><th>Status</th><th class="td-right">Action</th></tr></thead><tbody>
+        ${pendingRows || '<tr><td colspan="7" class="td-center">No pending POS approvals.</td></tr>'}
+      </tbody></table>
+    </div>
+    <div class="gf-card">
+      <div class="gf-card-head"><div><h3>Approval History</h3><p>Approved and flagged POS shift records.</p></div></div>
+      <table><thead><tr><th>Record ID</th><th>Date & Shift</th><th>Cashier</th><th>Branch</th><th class="td-right">Total Sales</th><th>Status</th><th class="td-right">Action</th></tr></thead><tbody>
+        ${historyRows || '<tr><td colspan="7" class="td-center">No POS approval history yet.</td></tr>'}
+      </tbody></table>
+    </div>`;
+}
+
+async function refreshRecordsPosApprovals(silent = false) {
+  const target = document.getElementById('records-pos-approvals');
+  if (!target) return;
+  try {
+    const branchId = currentUser.branch_id || '';
+    const [pending, history, txs] = await Promise.all([
+      API.shiftsPending(branchId),
+      API.shiftsHistory(branchId),
+      API.txList(currentBranchQuery({ limit: 500 })).catch(() => gfRecordTxCache),
+    ]);
+    window.gfPendingShifts = pending;
+    window.gfHistoryShifts = history;
+    window.gfShiftTxs = txs;
+    gfRecordTxCache = txs;
+    target.innerHTML = renderRecordsPosApprovals(pending, history);
+    const count = document.getElementById('records-pos-approval-count');
+    if (count) count.textContent = pending.length;
+    renderPosRecordsFiltered();
+    if (!silent) showToast('POS approvals refreshed.');
+  } catch(e) {
+    if (!silent) showToast(e.message || 'Could not refresh POS approvals.', 'error');
   }
 }
 
@@ -4041,16 +4124,22 @@ function shiftTransactionsFor(record) {
 
 function openVerifyModal(index) {
   const r = (window.gfPendingShifts || [])[index];
-  if (!r) return;
+  if (!r) {
+    showToast('Pending POS record not found.', 'error');
+    return;
+  }
   const txs = shiftTransactionsFor(r);
-  document.getElementById('gf-modal-root').innerHTML = verifyModalHTML(r, txs, false);
+  gfModalRoot().innerHTML = verifyModalHTML(r, txs, false);
 }
 
 function openHistoryModal(index) {
   const r = (window.gfHistoryShifts || [])[index];
-  if (!r) return;
+  if (!r) {
+    showToast('POS approval history record not found.', 'error');
+    return;
+  }
   const txs = shiftTransactionsFor(r);
-  document.getElementById('gf-modal-root').innerHTML = verifyModalHTML(r, txs, true);
+  gfModalRoot().innerHTML = verifyModalHTML(r, txs, true);
 }
 
 function verifyModalHTML(r, txs, history) {
@@ -4099,6 +4188,10 @@ async function confirmShiftVerify(id) {
     await API.shiftVerify(id, status, remarks);
     showToast(`Shift ${status.toLowerCase()}`);
     closeGfModal();
+    if (document.getElementById('records-pos-approvals')) {
+      await refreshRecordsPosApprovals(true);
+      return;
+    }
     initVerification();
   } catch(e) { showToast(e.message, 'error'); }
 }
