@@ -7,7 +7,10 @@
 
 function envValue(string $key, ?string $default = null): string {
     $value = getenv($key);
-    return ($value === false || $value === '') ? (string)$default : (string)$value;
+    if ($value === false || $value === '') {
+        $value = $_SERVER[$key] ?? $_ENV[$key] ?? $default;
+    }
+    return (string)$value;
 }
 
 define('APP_ENV', strtolower(envValue('GREENFUEL_ENV', envValue('APP_ENV', 'local'))));

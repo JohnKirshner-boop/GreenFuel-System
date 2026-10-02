@@ -3023,7 +3023,7 @@ async function activateUserAccount(id) {
   if (!confirm(`Do you want to ${actionText} ${user.name}?`)) return;
   try {
     const result = await API.userActivate(id);
-    showToast(result?.mail_sent ? 'Password setup link sent.' : 'Account updated. Email is not configured on this server.', result?.mail_sent ? 'ok' : 'warn');
+    showToast(result?.mail_sent ? 'Password setup link sent.' : 'Link created, but email was not sent. Check SMTP settings.', result?.mail_sent ? 'ok' : 'warn');
     openAccountSetupLinkModal(result, status === 'active' ? 'reset' : 'activation');
     gfUserCache = await API.users();
     if (status !== 'active') gfUserAccountFilter = 'active';
