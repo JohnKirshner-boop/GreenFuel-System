@@ -597,9 +597,8 @@ async function ownerNotifications() {
 }
 
 async function managerNotifications() {
-  const [requests, shifts, weekly] = await Promise.all([
+  const [requests, weekly] = await Promise.all([
     API.fuelPriceRequests({ status: 'pending' }).catch(() => []),
-    API.shiftsPending(currentUser.branch_id).catch(() => []),
     API.weeklyReport({ branch_id: currentUser.branch_id }).catch(() => null),
   ]);
   const items = [];
@@ -610,15 +609,6 @@ async function managerNotifications() {
       'page-fuel-prices',
       'warn',
       'Fuel Prices'
-    ));
-  }
-  if (shifts.length) {
-    items.push(notificationItem(
-      'Shift records need verification',
-      `${shifts.length} submitted cashier shift record${shifts.length === 1 ? '' : 's'} are pending review.`,
-      'page-verification',
-      'danger',
-      'Shift Verification'
     ));
   }
   const dailyCount = safeNum(weekly?.daily_entries_count || weekly?.totals?.tx_count);
@@ -1696,6 +1686,47 @@ function applyDailyEntryValues(values = {}) {
     field.value = value ?? '';
   });
   syncDailyEntryTotals();
+}
+
+function dailyEntryRollForwardValues(payload = {}) {
+  const values = {};
+  DAILY_TANKS.forEach(([tank]) => {
+    ['cm', 'l'].forEach(unit => {
+      const endingKey = `inv__${tank}__ending__${unit}`;
+      const beginningKey = `inv__${tank}__beginning__${unit}`;
+      if (payload[endingKey] !== undefined && payload[endingKey] !== '') {
+        values[beginningKey] = payload[endingKey];
+      }
+    });
+  });
+
+  ['digital', 'mechanical'].forEach(type => {
+    for (let pump = 1; pump <= 4; pump++) {
+      const endingKey = `${type}__pump${pump}__ending`;
+      const beginningKey = `${type}__pump${pump}__beginning`;
+      const productKey = `${type}__pump${pump}__product`;
+      if (payload[endingKey] !== undefined && payload[endingKey] !== '') {
+        values[beginningKey] = payload[endingKey];
+      }
+      if (payload[productKey]) values[productKey] = payload[productKey];
+    }
+  });
+  return values;
+}
+
+function dailyEntryPreviousForDate(entries = [], date = gfToday()) {
+  const target = String(date || gfToday()).slice(0, 10);
+  return (entries || [])
+    .filter(entry => String(entry.entry_date || '').slice(0, 10) < target)
+    .sort((a, b) => String(b.entry_date || '').localeCompare(String(a.entry_date || '')) || safeNum(b.id) - safeNum(a.id))[0] || null;
+}
+
+function dailyEntryPostSubmitValues(form, payload = {}) {
+  const values = dailyEntryRollForwardValues(payload);
+  ['entry_date', 'time_in', 'time_out', 'shift', 'duty_personnel', 'prepared_by'].forEach(name => {
+    if (form?.elements?.[name]) values[name] = form.elements[name].value;
+  });
+  return values;
 }
 
 function renderDailyCashRows(cashSummary = {}) {
@@ -3213,10 +3244,10 @@ async function initOwnerDash() {
     gfPageShell(page, 'Head Office Dashboard', 'Network-wide performance overview.',
       `<div class="gf-alert gf-alert-warn"><strong>Action Required: ${pending} Pending Reports</strong><span>Weekly consolidated reports from managers waiting for final approval.</span></div>
        <div class="gf-stat-grid">
-         ${gfCard('Total Network Sales', fmt(totalSales), `${gfPct(8.2)} vs last week`, 'dark')}
-         ${gfCard('Total Transactions', parseInt(summary.all_time.tx_count || 0).toLocaleString(), `Avg ${fmt(summary.all_time.avg_tx)} / transaction`)}
-         ${gfCard('Total Expenses', fmt(totalExpenses), '-2.4% vs last week')}
-         ${gfCard('Net Sales', fmt(netSales), '88% Profit Margin')}
+         ${gfCard('Total Network Sales', fmt(totalSales), '', 'dark')}
+         ${gfCard('Total Transactions', parseInt(summary.all_time.tx_count || 0).toLocaleString())}
+         ${gfCard('Total Expenses', fmt(totalExpenses))}
+         ${gfCard('Net Sales', fmt(netSales))}
        </div>
        <div class="gf-dash-grid">
          <div class="gf-card">
@@ -3301,12 +3332,11 @@ async function initComparison() {
           <small>Highest sales for ${gfEscape(rangeLabel)}</small>
           <h2>${gfEscape(top.name || 'No branch')}</h2>
           <strong>${fmt(top.revenue)}</strong>
-          <em>${top.id ? comparisonGrowth(top) + ' vs previous week' : 'No weekly data yet'}</em>
         </div>
         <div class="gf-card">
           <div class="gf-card-head"><div><h3>Performance Ranking</h3><p>${gfEscape(rangeLabel)}</p></div></div>
-          <table><thead><tr><th>Rank</th><th>Branch</th><th class="td-right">Week Sales</th><th>Growth</th><th class="td-right">AVG Record</th></tr></thead>
-          <tbody>${ranking.map((b, i) => `<tr><td>#${i + 1}</td><td><b>${gfEscape(b.name)}</b><br><small>${gfEscape(b.location || '')}</small></td><td class="td-right">${fmt(b.revenue)}</td><td>${comparisonGrowth(b)}</td><td class="td-right">${fmt(b.avg_tx)}</td></tr>`).join('') || '<tr><td colspan="5" class="td-center">No branch data for this week yet</td></tr>'}</tbody></table>
+          <table><thead><tr><th>Rank</th><th>Branch</th><th class="td-right">Week Sales</th><th class="td-right">AVG Record</th></tr></thead>
+          <tbody>${ranking.map((b, i) => `<tr><td>#${i + 1}</td><td><b>${gfEscape(b.name)}</b><br><small>${gfEscape(b.location || '')}</small></td><td class="td-right">${fmt(b.revenue)}</td><td class="td-right">${fmt(b.avg_tx)}</td></tr>`).join('') || '<tr><td colspan="4" class="td-center">No branch data for this week yet</td></tr>'}</tbody></table>
         </div>
       </div>
       <div class="gf-two-col">
@@ -4779,6 +4809,16 @@ async function renderDailyEntryManager(date = gfToday()) {
   try {
     allFuels = await API.fuels();
   } catch(e) {}
+  let rollForwardValues = {};
+  if (!isEditing) {
+    try {
+      const previousEntries = await API.dailyEntries(currentBranchQuery());
+      const previousEntry = dailyEntryPreviousForDate(previousEntries, date);
+      rollForwardValues = dailyEntryRollForwardValues(previousEntry?.payload || {});
+    } catch(e) {
+      rollForwardValues = {};
+    }
+  }
   const totals = cashSummary.totals || {};
   const countedCash = safeNum(totals.denomination_cash ?? totals.cash_received);
   const actualRemitted = countedCash;
@@ -4915,7 +4955,10 @@ async function renderDailyEntryManager(date = gfToday()) {
       </div>
     </form>`;
   if (isEditing) fillDailyEntryForm(editing);
-  else restoreDailyEntryDraft(date);
+  else {
+    applyDailyEntryValues(rollForwardValues);
+    restoreDailyEntryDraft(date);
+  }
   const form = document.getElementById('daily-entry-form');
   form.querySelectorAll('[data-daily-calc]').forEach(el => el.addEventListener('input', () => {
     delete form.dataset.reviewReset;
@@ -4958,7 +5001,8 @@ async function submitDailyEntry() {
   const btn = document.querySelector('.daily-actions .btn-green');
   btn.disabled = true;
   const editId = form.dataset.editingId || '';
-  const keepAfterSubmit = dailyEntryKeepAfterSubmit(form);
+  const submittedPayload = collectDailyEntryPayload();
+  const keepAfterSubmit = dailyEntryPostSubmitValues(form, submittedPayload);
   btn.textContent = editId ? 'Updating...' : 'Submitting...';
   try {
     const submittedDate = form.elements.entry_date.value || gfToday();
@@ -4974,7 +5018,7 @@ async function submitDailyEntry() {
       actual_cash_remitted: form.elements.actual_cash_remitted.value,
       cash_payment: form.elements.cash_payment.value,
       over_short: form.elements.over_short.value,
-      payload: collectDailyEntryPayload(),
+      payload: submittedPayload,
     });
     clearDailyEntryDraft(submittedDate);
     dailyEntryEditing = null;
