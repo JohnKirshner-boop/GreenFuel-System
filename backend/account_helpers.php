@@ -118,6 +118,39 @@ function gfEnsurePasswordResetSchema(PDO $db): void {
           FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )"
     );
+
+    if (!gfColumnExists($db, 'password_resets', 'user_id')) {
+        $db->exec('ALTER TABLE password_resets ADD COLUMN user_id INT NOT NULL AFTER id');
+    }
+    if (!gfColumnExists($db, 'password_resets', 'token_hash')) {
+        $db->exec('ALTER TABLE password_resets ADD COLUMN token_hash CHAR(64) NOT NULL AFTER user_id');
+    }
+    if (!gfColumnExists($db, 'password_resets', 'expires_at')) {
+        $db->exec('ALTER TABLE password_resets ADD COLUMN expires_at DATETIME NOT NULL AFTER token_hash');
+    }
+    if (!gfColumnExists($db, 'password_resets', 'used_at')) {
+        $db->exec('ALTER TABLE password_resets ADD COLUMN used_at DATETIME NULL AFTER expires_at');
+    }
+    if (!gfColumnExists($db, 'password_resets', 'requested_ip')) {
+        $db->exec('ALTER TABLE password_resets ADD COLUMN requested_ip VARCHAR(45) NULL AFTER used_at');
+    }
+    if (!gfColumnExists($db, 'password_resets', 'created_at')) {
+        $db->exec('ALTER TABLE password_resets ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP AFTER requested_ip');
+    }
+    if (!gfIndexExists($db, 'password_resets', 'uq_password_resets_token')) {
+        try {
+            $db->exec('ALTER TABLE password_resets ADD UNIQUE KEY uq_password_resets_token (token_hash)');
+        } catch (PDOException $e) {
+            error_log('GreenFuel password reset token index repair skipped: '.$e->getMessage());
+        }
+    }
+    if (!gfIndexExists($db, 'password_resets', 'idx_password_resets_user')) {
+        try {
+            $db->exec('ALTER TABLE password_resets ADD KEY idx_password_resets_user (user_id)');
+        } catch (PDOException $e) {
+            error_log('GreenFuel password reset user index repair skipped: '.$e->getMessage());
+        }
+    }
 }
 
 function gfPasswordSetupUrl(string $token): string {
@@ -138,7 +171,9 @@ function gfIsLocalHost(): bool {
 }
 
 function gfCreatePasswordSetupLink(PDO $db, int $userId): array {
-    gfEnsurePasswordResetSchema($db);
+    if (!$db->inTransaction()) {
+        gfEnsurePasswordResetSchema($db);
+    }
     $token = bin2hex(random_bytes(32));
     $tokenHash = hash('sha256', $token);
     $expiresAt = date('Y-m-d H:i:s', time() + 3600);
@@ -159,6 +194,122 @@ function gfCreatePasswordSetupLink(PDO $db, int $userId): array {
     ];
 }
 
+function gfMailCleanHeader(string $value): string {
+    return trim(str_replace(["\r", "\n"], '', $value));
+}
+
+function gfMailAddress(string $email, string $name = ''): string {
+    $email = gfMailCleanHeader($email);
+    $name = gfMailCleanHeader($name);
+    return $name !== '' ? '"' . addcslashes($name, '"\\') . "\" <{$email}>" : $email;
+}
+
+function gfSmtpRead($socket): array {
+    $response = '';
+    while (($line = fgets($socket, 515)) !== false) {
+        $response .= $line;
+        if (strlen($line) >= 4 && $line[3] === ' ') break;
+    }
+    if ($response === '') {
+        throw new RuntimeException('No response from SMTP server.');
+    }
+    return [(int)substr($response, 0, 3), trim($response)];
+}
+
+function gfSmtpCommand($socket, ?string $command, array $expectedCodes, string $label): void {
+    if ($command !== null) {
+        fwrite($socket, $command . "\r\n");
+    }
+    [$code, $response] = gfSmtpRead($socket);
+    if (!in_array($code, $expectedCodes, true)) {
+        throw new RuntimeException($label . ' failed: ' . $response);
+    }
+}
+
+function gfSmtpSendEmail(string $toEmail, string $toName, string $subject, string $body): bool {
+    $host = envValue('GREENFUEL_MAIL_HOST', '');
+    $port = (int)envValue('GREENFUEL_MAIL_PORT', '587');
+    $username = envValue('GREENFUEL_MAIL_USERNAME', '');
+    $password = envValue('GREENFUEL_MAIL_PASSWORD', '');
+    $secure = strtolower(envValue('GREENFUEL_MAIL_SECURE', $port === 465 ? 'ssl' : 'tls'));
+    $fromEmail = envValue('GREENFUEL_MAIL_FROM', $username ?: 'no-reply@greenfuel.local');
+    $fromName = envValue('GREENFUEL_MAIL_FROM_NAME', 'GreenFuel');
+
+    if (!$host || !$username || !$password || !filter_var($fromEmail, FILTER_VALIDATE_EMAIL)) {
+        error_log('GreenFuel SMTP is not fully configured.');
+        return false;
+    }
+
+    $remote = ($secure === 'ssl' ? 'ssl://' : 'tcp://') . $host . ':' . $port;
+    $socket = @stream_socket_client($remote, $errno, $errstr, 20, STREAM_CLIENT_CONNECT);
+    if (!$socket) {
+        error_log("GreenFuel SMTP connection failed: {$errstr} ({$errno})");
+        return false;
+    }
+
+    try {
+        stream_set_timeout($socket, 20);
+        gfSmtpCommand($socket, null, [220], 'SMTP greeting');
+        $ehloHost = $_SERVER['SERVER_NAME'] ?? (parse_url(requestOrigin(), PHP_URL_HOST) ?: 'greenfuel.local');
+        gfSmtpCommand($socket, 'EHLO ' . $ehloHost, [250], 'SMTP EHLO');
+
+        if ($secure === 'tls') {
+            gfSmtpCommand($socket, 'STARTTLS', [220], 'SMTP STARTTLS');
+            if (!stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT)) {
+                throw new RuntimeException('Could not enable SMTP TLS encryption.');
+            }
+            gfSmtpCommand($socket, 'EHLO ' . $ehloHost, [250], 'SMTP EHLO after STARTTLS');
+        }
+
+        gfSmtpCommand($socket, 'AUTH LOGIN', [334], 'SMTP auth start');
+        gfSmtpCommand($socket, base64_encode($username), [334], 'SMTP username');
+        gfSmtpCommand($socket, base64_encode($password), [235], 'SMTP password');
+
+        gfSmtpCommand($socket, 'MAIL FROM:<' . gfMailCleanHeader($fromEmail) . '>', [250], 'SMTP sender');
+        gfSmtpCommand($socket, 'RCPT TO:<' . gfMailCleanHeader($toEmail) . '>', [250, 251], 'SMTP recipient');
+        gfSmtpCommand($socket, 'DATA', [354], 'SMTP data');
+
+        $safeSubject = gfMailCleanHeader($subject);
+        $headers = [
+            'Date: ' . date('r'),
+            'From: ' . gfMailAddress($fromEmail, $fromName),
+            'To: ' . gfMailAddress($toEmail, $toName),
+            'Subject: ' . $safeSubject,
+            'MIME-Version: 1.0',
+            'Content-Type: text/plain; charset=UTF-8',
+            'Content-Transfer-Encoding: 8bit',
+        ];
+        $message = implode("\r\n", $headers) . "\r\n\r\n" . str_replace(["\r\n", "\r"], "\n", $body);
+        $message = str_replace("\n", "\r\n", $message);
+        $message = preg_replace('/^\./m', '..', $message);
+        fwrite($socket, $message . "\r\n.\r\n");
+        gfSmtpCommand($socket, null, [250], 'SMTP send');
+        gfSmtpCommand($socket, 'QUIT', [221, 250], 'SMTP quit');
+        fclose($socket);
+        return true;
+    } catch (Throwable $e) {
+        error_log('GreenFuel SMTP send failed: ' . $e->getMessage());
+        if (is_resource($socket)) {
+            @fwrite($socket, "QUIT\r\n");
+            @fclose($socket);
+        }
+        return false;
+    }
+}
+
+function gfSendSystemEmail(string $email, string $name, string $subject, string $body): bool {
+    $driver = strtolower(envValue('GREENFUEL_MAIL_DRIVER', 'mail'));
+    if ($driver === 'smtp') {
+        return gfSmtpSendEmail($email, $name, $subject, $body);
+    }
+
+    $fromEmail = envValue('GREENFUEL_MAIL_FROM', 'no-reply@greenfuel.local');
+    $fromName = envValue('GREENFUEL_MAIL_FROM_NAME', 'GreenFuel');
+    $headers = 'From: ' . gfMailAddress($fromEmail, $fromName) . "\r\n"
+             . "Content-Type: text/plain; charset=UTF-8\r\n";
+    return @mail($email, gfMailCleanHeader($subject), $body, $headers);
+}
+
 function gfSendPasswordSetupEmail(string $email, string $name, string $url, string $mode = 'activate'): bool {
     $isActivation = $mode === 'activate';
     $subject = $isActivation ? 'GreenFuel account activation link' : 'GreenFuel password reset link';
@@ -170,9 +321,7 @@ function gfSendPasswordSetupEmail(string $email, string $name, string $url, stri
           . "Open this link to create your own password:\n{$url}\n\n"
           . "This link expires in 1 hour. If you did not expect this email, please contact your administrator.\n\n"
           . "GreenFuel Management System";
-    $headers = "From: GreenFuel <no-reply@greenfuel.local>\r\n"
-             . "Content-Type: text/plain; charset=UTF-8\r\n";
-    return @mail($email, $subject, $body, $headers);
+    return gfSendSystemEmail($email, $name, $subject, $body);
 }
 
 function gfNormalizeBranchIds(array $branchIds): array {

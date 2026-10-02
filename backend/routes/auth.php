@@ -32,20 +32,7 @@ function authValidProfileImage(?string $image): ?string {
 }
 
 function authEnsurePasswordResetSchema(PDO $db): void {
-    $db->exec(
-        "CREATE TABLE IF NOT EXISTS password_resets (
-          id INT AUTO_INCREMENT PRIMARY KEY,
-          user_id INT NOT NULL,
-          token_hash CHAR(64) NOT NULL,
-          expires_at DATETIME NOT NULL,
-          used_at DATETIME NULL,
-          requested_ip VARCHAR(45) NULL,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          UNIQUE KEY uq_password_resets_token (token_hash),
-          KEY idx_password_resets_user (user_id),
-          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        )"
-    );
+    gfEnsurePasswordResetSchema($db);
 }
 
 function authPasswordResetUrl(string $token): string {
@@ -71,9 +58,7 @@ function authSendPasswordResetEmail(string $email, string $name, string $url): b
           . "Open this link to create a new password:\n{$url}\n\n"
           . "This link expires in 1 hour. If you did not request this, you can ignore this email.\n\n"
           . "GreenFuel Management System";
-    $headers = "From: GreenFuel <no-reply@greenfuel.local>\r\n"
-             . "Content-Type: text/plain; charset=UTF-8\r\n";
-    return @mail($email, $subject, $body, $headers);
+    return gfSendSystemEmail($email, $name, $subject, $body);
 }
 
 authEnsurePasswordResetSchema($db);

@@ -231,7 +231,8 @@ switch ($action) {
             $db->commit();
         } catch (Throwable $e) {
             if ($db->inTransaction()) $db->rollBack();
-            throw $e;
+            error_log('GreenFuel account activation failed: '.$e->getMessage());
+            jsonError('Could not create the password setup link. Please refresh and try again.', 500);
         }
 
         $sent = gfSendPasswordSetupEmail($target['email'], $target['name'], $link['url'], $mailMode);

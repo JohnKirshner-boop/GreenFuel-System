@@ -40,9 +40,10 @@ async function apiFetch(route, params = {}, options = {}) {
   if (json && typeof json === 'object' && json.csrf_token) {
     GREENFUEL_CSRF_TOKEN = json.csrf_token;
   }
-  if (!json.success && res.status !== 200) {
+  if (json && json.success === false) {
     throw new Error(json.error || 'Request failed');
   }
+  if (!res.ok) throw new Error(json.error || `Request failed (${res.status})`);
   return payload;
 }
 
