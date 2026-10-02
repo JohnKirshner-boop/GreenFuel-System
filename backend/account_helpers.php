@@ -297,8 +297,60 @@ function gfSmtpSendEmail(string $toEmail, string $toName, string $subject, strin
     }
 }
 
+function gfBrevoApiSendEmail(string $toEmail, string $toName, string $subject, string $body): bool {
+    $apiKey = envValue('GREENFUEL_BREVO_API_KEY', envValue('BREVO_API_KEY', ''));
+    $fromEmail = envValue('GREENFUEL_MAIL_FROM', 'no-reply@greenfuel.local');
+    $fromName = envValue('GREENFUEL_MAIL_FROM_NAME', 'GreenFuel');
+
+    if (!$apiKey || !filter_var($fromEmail, FILTER_VALIDATE_EMAIL) || !filter_var($toEmail, FILTER_VALIDATE_EMAIL)) {
+        error_log('GreenFuel Brevo API is not fully configured.');
+        return false;
+    }
+
+    $payload = [
+        'sender' => [
+            'email' => gfMailCleanHeader($fromEmail),
+            'name' => gfMailCleanHeader($fromName),
+        ],
+        'to' => [[
+            'email' => gfMailCleanHeader($toEmail),
+            'name' => gfMailCleanHeader($toName) ?: gfMailCleanHeader($toEmail),
+        ]],
+        'subject' => gfMailCleanHeader($subject),
+        'textContent' => str_replace(["\r\n", "\r"], "\n", $body),
+    ];
+
+    $context = stream_context_create([
+        'http' => [
+            'method' => 'POST',
+            'header' => implode("\r\n", [
+                'Accept: application/json',
+                'Content-Type: application/json',
+                'api-key: ' . gfMailCleanHeader($apiKey),
+            ]),
+            'content' => json_encode($payload, JSON_UNESCAPED_SLASHES),
+            'ignore_errors' => true,
+            'timeout' => 20,
+        ],
+    ]);
+
+    $response = @file_get_contents('https://api.brevo.com/v3/smtp/email', false, $context);
+    $statusLine = $http_response_header[0] ?? '';
+    $statusCode = preg_match('/\s(\d{3})\s/', $statusLine, $m) ? (int)$m[1] : 0;
+    if (in_array($statusCode, [200, 201, 202], true)) {
+        return true;
+    }
+
+    $details = is_string($response) && $response !== '' ? substr($response, 0, 300) : $statusLine;
+    error_log('GreenFuel Brevo API send failed: HTTP ' . $statusCode . ' ' . $details);
+    return false;
+}
+
 function gfSendSystemEmail(string $email, string $name, string $subject, string $body): bool {
     $driver = strtolower(envValue('GREENFUEL_MAIL_DRIVER', 'mail'));
+    if ($driver === 'brevo_api') {
+        return gfBrevoApiSendEmail($email, $name, $subject, $body);
+    }
     if ($driver === 'smtp') {
         return gfSmtpSendEmail($email, $name, $subject, $body);
     }
