@@ -569,10 +569,7 @@ function notificationItem(title, body, page, tone = 'info', meta = '') {
 }
 
 async function ownerNotifications() {
-  const [reports, requests] = await Promise.all([
-    API.reportList().catch(() => []),
-    API.fuelPriceRequests({ status: 'pending' }).catch(() => []),
-  ]);
+  const reports = await API.reportList().catch(() => []);
   const items = [];
   const pendingReports = reports.filter(r => String(r.status || '').toLowerCase() === 'submitted');
   if (pendingReports.length) {
@@ -582,15 +579,6 @@ async function ownerNotifications() {
       'page-analytics',
       'warn',
       pendingReports[0]?.submitted_at ? `Latest: ${fmtDT(pendingReports[0].submitted_at)}` : ''
-    ));
-  }
-  if (requests.length) {
-    items.push(notificationItem(
-      'Fuel price requests are pending',
-      `${requests.length} cashier price request${requests.length === 1 ? '' : 's'} are waiting for branch manager review.`,
-      'page-fuel-prices',
-      'info',
-      'Monitor request flow and ceiling limits'
     ));
   }
   return items;
@@ -2758,6 +2746,69 @@ function userRoleBranchSummary(user) {
   return `${gfEscape(user.branch_name || 'Unassigned')}${user.branch_location ? `<br><small>${gfEscape(user.branch_location)}</small>` : ''}`;
 }
 
+function userAccountInitials(user) {
+  const label = String(user.name || user.email || user.username || '?').trim();
+  const parts = label.split(/\s+/).filter(Boolean);
+  if (parts.length > 1) return `${parts[0][0] || ''}${parts[parts.length - 1][0] || ''}`.toUpperCase();
+  return label.slice(0, 2).toUpperCase();
+}
+
+function userAccountStatusMeta(user) {
+  const status = userAccountStatusKey(user.account_status);
+  if (status === 'pending') {
+    return {
+      title: 'Waiting for private setup',
+      detail: 'Send the activation link so this user can create their own password.',
+    };
+  }
+  if (status === 'deactivated') {
+    return {
+      title: 'Access is disabled',
+      detail: 'Reactivate this account only when the staff member needs access again.',
+    };
+  }
+  return {
+    title: 'Can sign in',
+    detail: user.activated_at ? `Activated ${fmtDT(user.activated_at)}` : 'Account is active.',
+  };
+}
+
+function userAccountCard(user) {
+  const status = userAccountStatusKey(user.account_status);
+  const meta = userAccountStatusMeta(user);
+  return `
+    <article class="account-control-card ${status}">
+      <div class="account-control-main">
+        <div class="account-identity">
+          <span class="account-mini-avatar">${gfEscape(userAccountInitials(user))}</span>
+          <div>
+            <h4>${gfEscape(user.name || 'Unnamed user')}</h4>
+            <p class="mono">${gfEscape(user.email || user.username || '-')}</p>
+          </div>
+        </div>
+        <div class="account-detail-grid">
+          <div>
+            <small>Position</small>
+            <span class="badge ${userRoleBadge(user.role)}">${String(user.role || '').toUpperCase()}</span>
+          </div>
+          <div>
+            <small>Branch Access</small>
+            <b>${userRoleBranchSummary(user)}</b>
+          </div>
+          <div>
+            <small>Status</small>
+            <span class="badge ${userAccountStatusBadge(user.account_status)}">${userAccountStatusLabel(user.account_status)}</span>
+            <em>${gfEscape(meta.title)}</em>
+          </div>
+        </div>
+        <p class="account-status-explain">${gfEscape(meta.detail)}</p>
+      </div>
+      <div class="account-control-actions">
+        ${userAccountActionButtons(user)}
+      </div>
+    </article>`;
+}
+
 function toggleUserRoleBranch() {
   const managerMode = isManagerUserRoleMode();
   const roleSelect = document.getElementById('user-role-role');
@@ -2885,20 +2936,12 @@ function renderUserRoles() {
          <div class="gf-card-head"><div><h3>${managerMode ? 'Branch Cashiers' : 'Account Controls'}</h3><p>${managerMode ? 'Activate, reset, deactivate, or update cashier access.' : 'Keep activation, reset links, and deactivated accounts separated.'}</p></div></div>
          ${userAccountFilterTabs(counts)}
          <p class="account-status-tab-help">${filterHelp[gfUserAccountFilter]}</p>
-         <div class="tbl-wrap">
-           <table>
-             <thead><tr><th>Name</th><th>Email</th><th>Position</th><th>Branch Access</th><th>Status</th><th class="td-right">Action</th></tr></thead>
-             <tbody>${filteredUsers.map(u => `
-               <tr>
-                 <td><b>${gfEscape(u.name)}</b></td>
-                 <td class="mono">${gfEscape(u.email || u.username)}</td>
-                 <td><span class="badge ${userRoleBadge(u.role)}">${String(u.role).toUpperCase()}</span></td>
-                 <td>${userRoleBranchSummary(u)}</td>
-                 <td><span class="badge ${userAccountStatusBadge(u.account_status)}">${userAccountStatusLabel(u.account_status)}</span>${u.activated_at ? `<br><small>Activated ${fmtDT(u.activated_at)}</small>` : ''}</td>
-                 <td class="td-right">${userAccountActionButtons(u)}</td>
-               </tr>`).join('') || `<tr><td colspan="6" class="td-center">${emptyLabel[gfUserAccountFilter]}</td></tr>`}
-             </tbody>
-           </table>
+         <div class="account-control-list">
+           ${filteredUsers.map(userAccountCard).join('') || `
+             <div class="account-control-empty">
+               <b>${emptyLabel[gfUserAccountFilter]}</b>
+               <span>Accounts for this status will appear here.</span>
+             </div>`}
          </div>
        </div>
      </div>`);
@@ -3335,7 +3378,7 @@ async function initComparison() {
         </div>
         <div class="gf-card">
           <div class="gf-card-head"><div><h3>Performance Ranking</h3><p>${gfEscape(rangeLabel)}</p></div></div>
-          <table><thead><tr><th>Rank</th><th>Branch</th><th class="td-right">Week Sales</th><th class="td-right">AVG Record</th></tr></thead>
+          <table><thead><tr><th>Rank</th><th>Branch</th><th class="td-right">Week Sales</th><th class="td-right">SALES RECORD</th></tr></thead>
           <tbody>${ranking.map((b, i) => `<tr><td>#${i + 1}</td><td><b>${gfEscape(b.name)}</b><br><small>${gfEscape(b.location || '')}</small></td><td class="td-right">${fmt(b.revenue)}</td><td class="td-right">${fmt(b.avg_tx)}</td></tr>`).join('') || '<tr><td colspan="4" class="td-center">No branch data for this week yet</td></tr>'}</tbody></table>
         </div>
       </div>
