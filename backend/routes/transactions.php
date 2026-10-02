@@ -302,8 +302,18 @@ switch ($action) {
             ? (!empty($_GET['branch_id']) ? requireBranchAccess($db, $user, $_GET['branch_id']) : null)
             : activeBranchId($db, $user, $_GET['branch_id'] ?? ($user['branch_id'] ?? null));
         $limit  = min((int)($_GET['limit'] ?? 12), 50);
-        $params = []; $where = '';
-        if ($bid) { $where = 'WHERE t.branch_id = ?'; $params[] = $bid; }
+        $params = [];
+        $whereParts = [];
+        if ($bid) {
+            $whereParts[] = 't.branch_id = ?';
+            $params[] = $bid;
+        }
+        $shiftSessionId = (int)($_GET['shift_session_id'] ?? 0);
+        if ($shiftSessionId > 0) {
+            $whereParts[] = 't.shift_session_id = ?';
+            $params[] = $shiftSessionId;
+        }
+        $where = $whereParts ? 'WHERE '.implode(' AND ', $whereParts) : '';
         $params[] = $limit;
         $stmt = $db->prepare(
             'SELECT t.*, f.name AS fuel_name, f.color AS fuel_color,
@@ -476,6 +486,7 @@ switch ($action) {
             'change_recorded' => round($changeBreakdownTotal, 2),
             'price_per_liter' => $price,
             'liters'          => $liters,
+            'shift_session_id' => $shiftSessionId,
         ], 'Transaction saved.');
     }
 

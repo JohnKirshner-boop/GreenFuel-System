@@ -1327,7 +1327,7 @@ async function initForecast() {
     document.getElementById('forecast-summary').innerHTML = `
       <div class="forecast-summary-card danger"><span>Urgent</span><b>${urgent.length}</b><small>Needs refill</small></div>
       <div class="forecast-summary-card warn"><span>Watch</span><b>${monitor.length}</b><small>Monitor stock</small></div>
-      <div class="forecast-summary-card ok"><span>Healthy</span><b>${healthy.length}</b><small>Covered demand</small></div>
+      <div class="forecast-summary-card ok"><span>Healthy</span><b>${healthy.length}</b><small>Enough stock</small></div>
       <div class="forecast-summary-card"><span>Avg Coverage</span><b>${avgCoverage ? safeNum(avgCoverage).toFixed(1) : '-'}</b><small>days remaining</small></div>`;
 
     const actionRows = priority.slice(0, 6);
@@ -1353,7 +1353,8 @@ async function initForecast() {
               </div>
               <div class="forecast-action-metrics">
                 <span><small>${gfEscape(stockBasisLabel(f))}</small><b>${fmtL(f.current_stock)}</b></span>
-                <span><small>Demand</small><b>${fmtL(f.projected_7day_liters)}</b></span>
+                <span><small>Avg/Day Sold</small><b>${fmtL(f.avg_daily_liters || f.avg_daily)}</b></span>
+                <span><small>Critical Level</small><b>${fmtL(f.critical_liters)}</b></span>
               </div>
               <span class="forecast-tag ${tagMap[f.suggestion]||'tag-normal'}">${gfEscape(f.suggestion)}</span>
             </div>`;
@@ -1363,12 +1364,12 @@ async function initForecast() {
 
     const tableRows = activeRows.length ? activeRows : forecasts;
     document.getElementById('forecast-table').innerHTML = `<table>
-      <thead><tr><th>Branch</th><th>Fuel</th><th class="td-right">Current Stock</th><th class="td-right">Projected Demand</th><th class="td-right">Critical</th><th class="td-right">Days Left</th><th>Status</th></tr></thead>
+      <thead><tr><th>Branch</th><th>Fuel</th><th class="td-right">Current Stock</th><th class="td-right">Avg Daily Sold</th><th class="td-right">Critical</th><th class="td-right">Days Left</th><th>Status</th></tr></thead>
       <tbody>${tableRows.map(f => `<tr>
         <td><b>${gfEscape(f.branch_name)}</b><br><small>${gfEscape(f.branch_location || '')}</small></td>
         <td>${gfEscape(f.fuel_name)}</td>
         <td class="td-right">${fmtL(f.current_stock)}<br><small>${gfEscape(stockBasisLabel(f))}</small></td>
-        <td class="td-right">${fmtL(f.projected_7day_liters)}</td>
+        <td class="td-right">${fmtL(f.avg_daily_liters || f.avg_daily)}</td>
         <td class="td-right">${fmtL(f.critical_liters)}</td>
         <td class="td-right">${f.days_remaining === null || f.days_remaining === undefined ? '-' : `${safeNum(f.days_remaining).toFixed(1)} days`}</td>
         <td><span class="forecast-tag ${tagMap[f.suggestion]||'tag-normal'}">${gfEscape(f.suggestion)}</span></td>
@@ -1376,7 +1377,7 @@ async function initForecast() {
     </table>`;
 
     const chartRows = (activeRows.length ? activeRows : forecasts)
-      .filter(f => safeNum(f.current_stock) || safeNum(f.projected_7day_liters) || safeNum(f.critical_liters))
+      .filter(f => safeNum(f.current_stock) || safeNum(f.critical_liters))
       .slice(0, 8);
     const labels = chartRows.map(f => `${f.branch_name} · ${f.fuel_name}`);
     destroyChart('forecast-chart');
@@ -1386,7 +1387,6 @@ async function initForecast() {
         labels,
         datasets: [
           { label: 'Current Stock', data: chartRows.map(f => Math.round(safeNum(f.current_stock))), backgroundColor: '#16a34a', borderRadius: 5 },
-          { label: 'Projected 7-Day Sales', data: chartRows.map(f => Math.round(safeNum(f.projected_7day_liters))), backgroundColor: '#2563eb', borderRadius: 5 },
           { label: 'Critical Stock', data: chartRows.map(f => Math.round(safeNum(f.critical_liters))), backgroundColor: '#d97706', borderRadius: 5 },
         ],
       },
@@ -1423,7 +1423,7 @@ async function initAnalytics() {
     const alertHTML = forecasts.filter(f => ['refill urgent', 'monitor stock'].includes(f.suggestion)).map(f => `
       <div class="alert alert-${f.suggestion==='refill urgent'?'danger':'warn'}">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
-        <span><strong>${gfEscape(f.branch_name)} · ${gfEscape(f.fuel_name)}:</strong> ${fmtL(f.current_stock)} stock vs ${fmtL(f.projected_7day_liters)} projected demand — ${f.suggestion==='refill urgent'?'refill immediately.':'monitor stock before it reaches critical level.'}</span>
+        <span><strong>${gfEscape(f.branch_name)} · ${gfEscape(f.fuel_name)}:</strong> ${fmtL(f.current_stock)} stock with ${fmtL(f.projected_7day_liters)} estimated 7-day sales usage — ${f.suggestion==='refill urgent'?'refill immediately.':'monitor stock before it reaches critical level.'}</span>
       </div>`).join('');
     document.getElementById('analytics-alert-list').innerHTML = alertHTML || '<div class="gf-empty-note">No fuel stock alerts from the current forecast.</div>';
 
@@ -4496,6 +4496,15 @@ function getPosChangeBreakdownTotal() {
   return getPosDenomBreakdownTotal('change');
 }
 
+function gfCurrentShiftTransactions(txs) {
+  const shift = (typeof gfActiveShift !== 'undefined' ? gfActiveShift : null) || window.fsActiveShift || null;
+  const sessionId = String(shift?.id || '');
+  if (sessionId) {
+    return txs.filter(t => String(t.shift_session_id || '') === sessionId);
+  }
+  return txs.filter(t => new Date(t.timestamp).toDateString() === new Date().toDateString());
+}
+
 function updatePosDenomButton(btn, count) {
   btn.dataset.denomCount = String(count);
   btn.classList.toggle('has-count', count > 0);
@@ -4696,12 +4705,13 @@ async function submitTransaction() {
   try {
     btn.disabled = true;
     btn.textContent = 'Saving...';
-    await API.txCreate({
+    const saved = await API.txCreate({
       branch_id: currentUser.branch_id,
       fuel_type: selectedFuel.id,
       liters,
       amount_paid: amountDue,
       cash_received: cashReceived,
+      tax_rate: taxRate,
       cash_breakdown: getPosCashBreakdown(),
       change_breakdown: getPosChangeBreakdown(),
       customer: document.getElementById('pos-customer')?.value || 'Walk-in',
@@ -4711,7 +4721,7 @@ async function submitTransaction() {
     resetPosDenoms();
     calcPosTotal();
     await loadRecentTx();
-    showToast('Transaction saved.');
+    showToast(saved?.id ? `Transaction saved: ${saved.id}` : 'Transaction saved.');
   } catch(e) {
     showToast(e.message, 'error');
   } finally {
@@ -4725,9 +4735,10 @@ async function loadRecentTx() {
   if (!wrap) return;
   wrap.innerHTML = loadingHTML;
   try {
-    const txs = await API.txRecent(currentUser.branch_id, 50);
-    const today = txs.filter(t => new Date(t.timestamp).toDateString() === new Date().toDateString());
-    const active = today.filter(t => t.status !== 'void' && t.status !== 'flagged');
+    const shiftId = String(((typeof gfActiveShift !== 'undefined' ? gfActiveShift : null) || window.fsActiveShift || {}).id || '');
+    const txs = await API.txRecent(currentUser.branch_id, 50, shiftId ? { shift_session_id: shiftId } : {});
+    const current = gfCurrentShiftTransactions(txs);
+    const active = current.filter(t => t.status !== 'void' && t.status !== 'flagged');
     const total = active.reduce((a, t) => a + safeNum(t.total_amount), 0);
     const tax = active.reduce((a, t) => a + safeNum(t.tax_amount), 0);
     const volume = active.reduce((a, t) => a + safeNum(t.liters), 0);
@@ -4736,12 +4747,12 @@ async function loadRecentTx() {
     const taxBadge = document.getElementById('pos-tax-total-badge');
     if (taxBadge) taxBadge.textContent = `VAT: ${fmt(tax)}`;
     document.getElementById('pos-shift-total').textContent = fmt(total);
-    window.gfPosReceiptTxs = today;
-    if (!today.length) {
-      wrap.innerHTML = '<div class="loading">No transactions recorded yet</div>';
+    window.gfPosReceiptTxs = current;
+    if (!current.length) {
+      wrap.innerHTML = '<div class="loading">No transactions recorded for this shift yet</div>';
       return;
     }
-    wrap.innerHTML = `<div class="gf-tx-list">${today.slice(0, 14).map(renderPosTransactionCard).join('')}</div>`;
+    wrap.innerHTML = `<div class="gf-tx-list">${current.slice(0, 14).map(renderPosTransactionCard).join('')}</div>`;
   } catch(e) {
     wrap.innerHTML = `<div class="loading">${e.message}</div>`;
   }

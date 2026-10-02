@@ -35,6 +35,15 @@ window.fsPosTaxRate = 12;
 window.gfPendingLogoutAfterShift = false;
 window.fsPosLastInput = 'liters';
 
+function fsCurrentShiftTransactions(txs) {
+  const shift = window.fsActiveShift || (typeof gfActiveShift !== 'undefined' ? gfActiveShift : null);
+  const sessionId = String(shift?.id || '');
+  if (sessionId) {
+    return txs.filter(t => String(t.shift_session_id || '') === sessionId);
+  }
+  return txs.filter(t => new Date(t.timestamp).toDateString() === new Date().toDateString());
+}
+
 async function initFuelSightPOS() {
   const page = document.getElementById('page-pos');
   if (!page || !currentUser || currentUser.role !== 'cashier') return;
@@ -350,7 +359,7 @@ async function submitTransaction() {
   try {
     btn.disabled = true;
     btn.textContent = 'Saving...';
-    await API.txCreate({
+    const saved = await API.txCreate({
       branch_id: currentUser.branch_id,
       fuel_type: selectedFuel.id,
       liters,
@@ -364,7 +373,7 @@ async function submitTransaction() {
     window.fsPosLastInput = 'liters';
     calcPosTotal();
     await loadRecentTx();
-    showToast('Transaction saved.');
+    showToast(saved?.id ? `Transaction saved: ${saved.id}` : 'Transaction saved.');
   } catch(e) {
     showToast(e.message, 'error');
   } finally {
@@ -378,9 +387,10 @@ async function loadRecentTx() {
   if (!wrap) return;
   wrap.innerHTML = loadingHTML;
   try {
-    const txs = await API.txRecent(currentUser.branch_id, 50);
-    const today = txs.filter(t => new Date(t.timestamp).toDateString() === new Date().toDateString());
-    const active = today.filter(t => t.status !== 'void');
+    const shiftId = String(window.fsActiveShift?.id || '');
+    const txs = await API.txRecent(currentUser.branch_id, 50, shiftId ? { shift_session_id: shiftId } : {});
+    const current = fsCurrentShiftTransactions(txs);
+    const active = current.filter(t => t.status !== 'void' && t.status !== 'flagged');
     const total = active.reduce((a, t) => a + safeNum(t.total_amount), 0);
     const tax = active.reduce((a, t) => a + safeNum(t.tax_amount), 0);
     const volume = active.reduce((a, t) => a + safeNum(t.liters), 0);
@@ -389,9 +399,9 @@ async function loadRecentTx() {
     const taxBadge = document.getElementById('pos-tax-total-badge');
     if (taxBadge) taxBadge.textContent = `VAT: ${fmt(tax)}`;
     document.getElementById('pos-shift-total').textContent = fmt(total);
-    window.gfPosReceiptTxs = today;
-    if (!today.length) { wrap.innerHTML = '<div class="loading">No transactions recorded yet</div>'; return; }
-    wrap.innerHTML = `<div class="gf-tx-list">${today.slice(0, 18).map(renderPosTransactionCard).join('')}</div>`;
+    window.gfPosReceiptTxs = current;
+    if (!current.length) { wrap.innerHTML = '<div class="loading">No transactions recorded for this shift yet</div>'; return; }
+    wrap.innerHTML = `<div class="gf-tx-list">${current.slice(0, 18).map(renderPosTransactionCard).join('')}</div>`;
   } catch(e) {
     wrap.innerHTML = `<div class="loading">${e.message}</div>`;
   }

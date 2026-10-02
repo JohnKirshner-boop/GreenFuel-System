@@ -2,17 +2,17 @@
         <div class="page" id="page-forecast">
           <div class="page-header">
             <div class="page-title">Forecasting</div>
-            <div class="page-sub">Fuel stock and sales demand forecasting per branch</div>
+            <div class="page-sub">Fuel stock forecasting per branch</div>
           </div>
           <div class="alert alert-info">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/></svg>
-            Forecasts use the latest submitted Daily Entry inventory stock, then compare it with POS liters sold and projected 7-day demand.
+            Forecasts use the latest submitted Daily Entry inventory stock, then compare it with recent POS liters sold to estimate how many days of fuel are left.
           </div>
           <div class="forecast-summary-grid" id="forecast-summary"></div>
           <div class="forecast-grid" id="forecast-cards"></div>
           <div class="card">
-            <div class="card-title">Fuel Stock vs Projected Sales Demand</div>
-            <div class="card-desc">Current stock, critical stock, and projected 7-day liters sold by branch and fuel type</div>
+            <div class="card-title">Fuel Stock vs Critical Level</div>
+            <div class="card-desc">Current stock and critical stock level by branch and fuel type</div>
             <div class="chart-wrap forecast-chart-wrap"><canvas id="forecast-chart" role="img" aria-label="Forecast vs actual">Forecast chart.</canvas></div>
           </div>
           <div class="card forecast-table-card">

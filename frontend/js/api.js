@@ -80,7 +80,7 @@ const API = {
   // TRANSACTIONS
   txList:   (params = {})        => apiFetch('transactions.php', { action: 'list',   ...params }),
   txToday:  (branch_id)          => apiFetch('transactions.php', { action: 'today',  branch_id }),
-  txRecent: (branch_id, limit=12)=> apiFetch('transactions.php', { action: 'recent', branch_id, limit }),
+  txRecent: (branch_id, limit=12, params = {})=> apiFetch('transactions.php', { action: 'recent', branch_id, limit, ...params }),
   txCreate: (data)               => apiFetch('transactions.php', { action: 'create' }, { method: 'POST', body: JSON.stringify(data) }),
   txVerify: (tx_id, status)      => apiFetch('transactions.php', { action: 'verify' }, { method: 'POST', body: JSON.stringify({ tx_id, status }) }),
   txVoid:   (tx_id, reason)      => apiFetch('transactions.php', { action: 'void' }, { method: 'POST', body: JSON.stringify({ tx_id, reason }) }),
