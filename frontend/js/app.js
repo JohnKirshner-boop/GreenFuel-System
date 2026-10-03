@@ -439,6 +439,36 @@ function accountRoleLabel() {
   return currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1);
 }
 
+function managerBranchChoices() {
+  if (currentUser?.role !== 'manager') return [];
+  const details = Array.isArray(currentUser.assigned_branch_details) ? currentUser.assigned_branch_details : [];
+  if (details.length) return details;
+  return (currentUser.assigned_branches || []).map(id => ({ id, name: id, location: '' }));
+}
+
+function accountBranchSelectHTML(id, className = '') {
+  const branches = managerBranchChoices();
+  if (branches.length <= 1) return '';
+  return `<select id="${id}" class="${className}" onchange="switchManagerBranch(this.value)">
+    ${branches.map(branch => {
+      const selected = String(branch.id) === String(currentUser.branch_id) ? 'selected' : '';
+      const label = branch.name || branch.id;
+      const location = branch.location ? ` - ${branch.location}` : '';
+      return `<option value="${gfEscape(branch.id)}" ${selected}>${gfEscape(label + location)}</option>`;
+    }).join('')}
+  </select>`;
+}
+
+function accountMenuBranchSwitchHTML() {
+  const select = accountBranchSelectHTML('account-menu-branch-select', 'account-menu-select');
+  if (!select) return '';
+  return `<div class="account-menu-section account-menu-branch">
+    <div class="account-menu-label">Active Branch</div>
+    ${select}
+    <small>Pages and reports will use the selected branch.</small>
+  </div>`;
+}
+
 function renderAccountMenuShell() {
   const host = document.getElementById('account-menu-popover');
   const trigger = document.querySelector('.account-trigger');
@@ -466,6 +496,7 @@ function renderAccountMenuShell() {
           <span>${gfEscape(accountRoleLabel())} · ${gfEscape(accountBranchLabel())}</span>
         </div>
       </div>
+      ${accountMenuBranchSwitchHTML()}
       <button class="account-menu-item" type="button" onclick="openAccountSettingsFromMenu()">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.43 12.98c.04-.32.07-.65.07-.98s-.02-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.37-.31-.6-.22l-2.49 1a7.28 7.28 0 0 0-1.69-.98L14.5 2.42A.5.5 0 0 0 14 2h-4a.5.5 0 0 0-.5.42L9.12 5.07c-.61.24-1.18.56-1.69.98l-2.49-1a.5.5 0 0 0-.6.22l-2 3.46a.5.5 0 0 0 .12.64l2.11 1.65c-.04.32-.07.65-.07.98s.02.66.07.98l-2.11 1.65a.5.5 0 0 0-.12.64l2 3.46c.12.22.37.31.6.22l2.49-1c.51.4 1.08.73 1.69.98l.38 2.65c.04.24.25.42.5.42h4c.25 0 .46-.18.5-.42l.38-2.65c.61-.24 1.18-.56 1.69-.98l2.49 1c.23.08.48 0 .6-.22l2-3.46a.5.5 0 0 0-.12-.64l-2.11-1.65zM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5z"/></svg>
         <span><b>Account Settings</b><small>Profile picture, name, password</small></span>
@@ -506,6 +537,37 @@ function openAccountSettingsFromMenu() {
 async function chooseAccountMenuTheme(theme) {
   await setAccountTheme(theme);
   renderAccountMenuShell();
+}
+
+async function switchManagerBranch(branchId) {
+  if (!branchId || String(branchId) === String(currentUser?.branch_id || '')) return;
+  const activePage = document.querySelector('.page.active')?.id || '';
+  document.querySelectorAll('#account-menu-branch-select, #account-settings-branch-select').forEach(select => {
+    select.disabled = true;
+  });
+  try {
+    const updatedUser = await API.switchBranch(branchId);
+    currentUser = { ...currentUser, ...updatedUser };
+    selectedFuel = null;
+    try {
+      allFuels = await API.fuels();
+      if (allFuels[0]) selectedFuel = allFuels[0];
+    } catch(e) {}
+    dailyEntryEditing = null;
+    updateUserChrome();
+    closeAccountMenu();
+    showToast(`Active branch changed to ${accountBranchLabel()}.`);
+    await refreshNotifications();
+    if (activePage && activePage !== 'page-account') {
+      await loadPage(activePage);
+    } else if (activePage === 'page-account') {
+      initAccountSettings();
+    }
+  } catch(e) {
+    showToast(e.message || 'Could not change branch.', 'error');
+    renderAccountMenuShell();
+    if (document.getElementById('account-role-chip')) initAccountSettings();
+  }
 }
 
 function notificationIconPath() {
@@ -785,6 +847,13 @@ function initAccountSettings() {
   document.getElementById('account-email').value = currentUser.email || currentUser.username || '';
   document.getElementById('account-role').textContent = roleLabel;
   document.getElementById('account-branch').textContent = accountBranchLabel();
+  const branchSwitcher = document.getElementById('account-branch-switcher');
+  const branchSelect = accountBranchSelectHTML('account-settings-branch-select', 'account-settings-select');
+  if (branchSwitcher) {
+    branchSwitcher.innerHTML = branchSelect
+      ? `<label class="account-field account-branch-field">Switch Active Branch${branchSelect}<small>Manager pages reload using this branch after you switch.</small></label>`
+      : '';
+  }
   ['account-current-password', 'account-new-password', 'account-confirm-password'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';

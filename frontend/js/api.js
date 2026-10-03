@@ -57,6 +57,7 @@ const API = {
   resetPassword: (token, password) => apiFetch('auth.php', { action: 'reset_password' }, { method: 'POST', body: JSON.stringify({ token, password }) }),
   accountUpdate: (data)          => apiFetch('auth.php', { action: 'update_profile' }, { method: 'POST', body: JSON.stringify(data) }),
   accountThemeUpdate: (theme_preference) => apiFetch('auth.php', { action: 'update_theme' }, { method: 'POST', body: JSON.stringify({ theme_preference }) }),
+  switchBranch: (branch_id)       => apiFetch('auth.php', { action: 'switch_branch' }, { method: 'POST', body: JSON.stringify({ branch_id }) }),
   changePassword: (data)         => apiFetch('auth.php', { action: 'change_password' }, { method: 'POST', body: JSON.stringify(data) }),
 
   // BRANCHES + FUELS

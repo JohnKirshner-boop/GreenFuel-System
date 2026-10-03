@@ -51,6 +51,35 @@ function authIsLocalHost(): bool {
     return strpos($host, 'localhost') !== false || strpos($host, '127.0.0.1') !== false;
 }
 
+function authAssignedBranchDetails(PDO $db, int $userId, ?string $fallbackBranchId = null): array {
+    $stmt = $db->prepare(
+        'SELECT b.id, b.name, b.location
+           FROM user_branches ub
+           INNER JOIN branches b ON b.id = ub.branch_id
+          WHERE ub.user_id=?
+          ORDER BY ub.is_primary DESC, b.name ASC'
+    );
+    $stmt->execute([$userId]);
+    $branches = $stmt->fetchAll();
+    if (!$branches && $fallbackBranchId) {
+        $fallback = $db->prepare('SELECT id, name, location FROM branches WHERE id=? LIMIT 1');
+        $fallback->execute([$fallbackBranchId]);
+        $branch = $fallback->fetch();
+        if ($branch) $branches = [$branch];
+    }
+    return $branches;
+}
+
+function authBranchById(PDO $db, array $branches, string $branchId): ?array {
+    foreach ($branches as $branch) {
+        if ((string)$branch['id'] === $branchId) return $branch;
+    }
+    $stmt = $db->prepare('SELECT id, name, location FROM branches WHERE id=? LIMIT 1');
+    $stmt->execute([$branchId]);
+    $branch = $stmt->fetch();
+    return $branch ?: null;
+}
+
 function authSendPasswordResetEmail(string $email, string $name, string $url): bool {
     $subject = 'GreenFuel password reset link';
     $body = "Hello {$name},\n\n"
@@ -104,8 +133,11 @@ switch ($action) {
         session_regenerate_id(true);
 
         if ($user['role'] !== 'owner') {
+            $assignedBranchDetails = $user['role'] === 'manager'
+                ? authAssignedBranchDetails($db, (int)$user['id'], $user['branch_id'] ?? null)
+                : [];
             $assignedBranches = $user['role'] === 'manager'
-                ? gfAssignedBranchIds($db, (int)$user['id'])
+                ? array_values(array_map(fn($branch) => $branch['id'], $assignedBranchDetails))
                 : array_values(array_filter([$user['branch_id'] ?? null]));
             if (!$assignedBranches && !empty($user['branch_id'])) $assignedBranches = [$user['branch_id']];
             if (!$assignedBranches) jsonError('No branch is assigned to this account. Ask the owner to assign one.', 403);
@@ -139,7 +171,8 @@ switch ($action) {
             'branch_location' => $user['branch_location'] ?? null,
             'profile_image'   => $user['profile_image'] ?? null,
             'theme_preference' => authTheme($user['theme_preference'] ?? 'light'),
-            'assigned_branches' => $user['role'] === 'manager' ? gfAssignedBranchIds($db, (int)$user['id']) : [],
+            'assigned_branches' => $user['role'] === 'manager' ? $assignedBranches : [],
+            'assigned_branch_details' => $user['role'] === 'manager' ? $assignedBranchDetails : [],
         ];
         $_SESSION['user']['csrf_token'] = csrfToken();
         auditLog($db, $_SESSION['user'], 'login', 'user', (string)$user['id']);
@@ -263,6 +296,32 @@ switch ($action) {
         $_SESSION['user']['csrf_token'] = csrfToken();
         jsonSuccess($_SESSION['user'], 'Display mode updated.');
 
+    case 'switch_branch':
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonError('POST required', 405);
+        $u = requireAuth();
+        requireCsrf();
+        if (($u['role'] ?? '') !== 'manager') jsonError('Only managers can switch active branch.', 403);
+        $b = getBody();
+        $branchId = trim((string)($b['branch_id'] ?? ''));
+        if ($branchId === '') jsonError('branch_id is required.');
+
+        $assignedBranchDetails = authAssignedBranchDetails($db, (int)$u['id'], $u['branch_id'] ?? null);
+        $assignedBranches = array_values(array_map(fn($branch) => $branch['id'], $assignedBranchDetails));
+        if (!in_array($branchId, $assignedBranches, true)) {
+            jsonError('You can only switch to branches assigned to your account.', 403);
+        }
+        $branch = authBranchById($db, $assignedBranchDetails, $branchId);
+        if (!$branch) jsonError('Branch not found.', 404);
+
+        $_SESSION['user']['branch_id'] = $branch['id'];
+        $_SESSION['user']['branch_name'] = $branch['name'];
+        $_SESSION['user']['branch_location'] = $branch['location'];
+        $_SESSION['user']['assigned_branches'] = $assignedBranches;
+        $_SESSION['user']['assigned_branch_details'] = $assignedBranchDetails;
+        $_SESSION['user']['csrf_token'] = csrfToken();
+        auditLog($db, $_SESSION['user'], 'branch_switch', 'branch', $branch['id']);
+        jsonSuccess($_SESSION['user'], 'Active branch changed.');
+
     case 'change_password':
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonError('POST required', 405);
         $u = requireAuth();
@@ -314,6 +373,28 @@ switch ($action) {
             $_SESSION['user']['role'] = $fresh['role'];
             $_SESSION['user']['profile_image'] = $fresh['profile_image'] ?? null;
             $_SESSION['user']['theme_preference'] = authTheme($fresh['theme_preference'] ?? 'light');
+            if ($fresh['role'] === 'manager') {
+                $assignedBranchDetails = authAssignedBranchDetails($db, (int)$u['id'], $_SESSION['user']['branch_id'] ?? null);
+                $assignedBranches = array_values(array_map(fn($branch) => $branch['id'], $assignedBranchDetails));
+                if (!$assignedBranches) {
+                    session_destroy();
+                    jsonError('No branch is assigned to this account. Ask the owner to assign one.', 403);
+                }
+                if (!in_array($_SESSION['user']['branch_id'] ?? '', $assignedBranches, true)) {
+                    $first = $assignedBranchDetails[0];
+                    $_SESSION['user']['branch_id'] = $first['id'];
+                    $_SESSION['user']['branch_name'] = $first['name'];
+                    $_SESSION['user']['branch_location'] = $first['location'];
+                } else {
+                    $branch = authBranchById($db, $assignedBranchDetails, $_SESSION['user']['branch_id']);
+                    if ($branch) {
+                        $_SESSION['user']['branch_name'] = $branch['name'];
+                        $_SESSION['user']['branch_location'] = $branch['location'];
+                    }
+                }
+                $_SESSION['user']['assigned_branches'] = $assignedBranches;
+                $_SESSION['user']['assigned_branch_details'] = $assignedBranchDetails;
+            }
             $_SESSION['user']['csrf_token'] = csrfToken();
             $u = $_SESSION['user'];
         }
